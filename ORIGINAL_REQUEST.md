@@ -151,3 +151,33 @@ Integrity mode: development
 - [ ] La UI actualiza la lista de grupos activos y selecciona otro de forma automática.
 - [ ] El manual paso a paso existe en `docs/deploy_vercel.md` y es claro para usuarios no técnicos.
 - [ ] La aplicación compila de forma limpia sin warnings ni errores de compilación (`npm run build`).
+
+## Follow-up — 2026-06-10T17:28:26-05:00
+
+Dividir las estadísticas del perfil del usuario (puntaje, podio y aciertos en la Parte 2) por grupo/pool de forma integral, permitiendo al participante alternar entre sus grupos y ver el rendimiento local.
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Selector de Grupo en la Pestaña de Perfil
+- En la pestaña de Perfil (`src/components/dashboard/ProfileTab.tsx`), si el usuario tiene más de un grupo, mostrar un selector de grupo (dropdown).
+- Al cambiar de grupo, cargar reactivamente los datos de ese grupo.
+
+### R2. Datos y Puntos Específicos por Grupo (Backend & Frontend)
+- Consultar los puntos obtenidos específicos de ese grupo (`pool_members.total_points`) en lugar del total global en la tarjeta "Mi Puntaje" de la cabecera.
+- Cargar y mostrar el podio pronosticado de la Parte 1 (`champion_predictions`) que corresponda al grupo seleccionado.
+- Cargar y filtrar el feed de aciertos de la Parte 2 (`phase_predictions`) según el `pool_id` seleccionado para recalcular la efectividad y los marcadores exactos locales de ese grupo.
+
+## Acceptance Criteria
+
+### UI & UX
+- [ ] La pestaña "Perfil" muestra un dropdown estético con los grupos a los que pertenece el usuario.
+- [ ] Al cambiar el grupo en el dropdown, las estadísticas de "Estadísticas en Vivo (Parte 2)" y "Mi Podio Pronosticado" se actualizan de forma instantánea.
+- [ ] La cabecera del perfil muestra los puntos en esa liga en grande, y añade un pequeño indicador con el puntaje Global.
+
+### Funcionalidad y Seguridad
+- [ ] La consulta se realiza enviando y filtrando por `pool_id` mediante la función helper `getPoolMemberInfo` en `src/lib/db-helpers.ts`.
+- [ ] La aplicación compila de forma limpia y pasa los linters (`npm run build`).
+

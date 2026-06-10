@@ -133,7 +133,7 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
 
         {/* Gran total a la derecha */}
         <div className="px-8 py-4 rounded-xl bg-neutral-900/60 border border-neutral-800 text-center min-w-[145px] shrink-0">
-          <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Puntaje Grupo</p>
+          <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Mi Puntaje</p>
           <p className="text-4xl font-black text-white mt-1">
             {selectedPoolId ? (poolMemberInfo?.total_points || 0) : 0}
           </p>
@@ -147,7 +147,7 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
       </div>
 
       {/* Selector de Grupo para Estadísticas */}
-      {pools.length > 0 && (
+      {pools.length > 1 && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-5 rounded-2xl glass-card border border-neutral-800/60 shadow-lg gap-4">
           <div className="flex items-center gap-2.5">
             <span className="text-2xl">👥</span>
