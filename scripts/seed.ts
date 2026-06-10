@@ -109,21 +109,21 @@ const venues = [
 async function seed() {
   console.log('Iniciando carga de datos de semilla en Supabase...');
 
-  // 1. Limpiar datos existentes en cascada
-  console.log('Limpiando tablas de partidos y equipos...');
-  const { error: deleteMatchesError } = await supabase.from('matches').delete().neq('id', 0);
-  if (deleteMatchesError) console.error('Aviso al limpiar matches:', deleteMatchesError.message);
+  // 1. Limpiar datos existentes en cascada (Desactivado para prevenir borrados en cascada de predicciones de usuarios)
+  console.log('Limpiando tablas (desactivado para conservar predicciones existentes)...');
+  // const { error: deleteMatchesError } = await supabase.from('matches').delete().neq('id', 0);
+  // if (deleteMatchesError) console.error('Aviso al limpiar matches:', deleteMatchesError.message);
 
-  const { error: deleteTeamsError } = await supabase.from('teams').delete().neq('id', 'NONE');
-  if (deleteTeamsError) console.error('Aviso al limpiar teams:', deleteTeamsError.message);
+  // const { error: deleteTeamsError } = await supabase.from('teams').delete().neq('id', 'NONE');
+  // if (deleteTeamsError) console.error('Aviso al limpiar teams:', deleteTeamsError.message);
 
-  // 2. Insertar equipos
-  console.log(`Insertando ${teamsSeed.length} equipos...`);
+  // 2. Inserción no destructiva de equipos
+  console.log(`Upserteando ${teamsSeed.length} equipos...`);
   const teamsData = teamsSeed.map(({ id, name, flag_emoji, fifa_ranking, confederation }) => ({
     id, name, flag_emoji, fifa_ranking, confederation
   }));
 
-  const { error: insertTeamsError } = await supabase.from('teams').insert(teamsData);
+  const { error: insertTeamsError } = await supabase.from('teams').upsert(teamsData, { onConflict: 'id' });
   if (insertTeamsError) {
     console.error('Error al insertar equipos:', insertTeamsError.message);
     process.exit(1);
@@ -181,20 +181,32 @@ async function seed() {
       let venueObj = venues[matchId % venues.length];
 
       if (matchup.round === 1) {
-        // Ronda 1: Junio 11 (grupos A, B), Junio 12 (C, D), Junio 13 (E, F), Junio 14 (G, H), Junio 15 (I, J), Junio 16 (K, L)
+        // Ronda 1: Match 1 is June 11 at 19:00 UTC (2:00 PM Bogota); Match 2 is June 12 at 02:00 UTC (9:00 PM Bogota)
         const dayOffset = Math.floor(gIdx / 2); // 0 a 5
-        const dateStr = `2026-06-${11 + dayOffset}T${17 + (mIdx % 2) * 3}:00:00Z`; // 17:00 y 20:00 UTC
-        matchDate = new Date(dateStr);
+        const day = 11 + dayOffset;
+        if (mIdx % 2 === 0) {
+          const dateStr = `2026-06-${String(day).padStart(2, '0')}T19:00:00Z`;
+          matchDate = new Date(dateStr);
+        } else {
+          const dateStr = `2026-06-${String(day + 1).padStart(2, '0')}T02:00:00Z`;
+          matchDate = new Date(dateStr);
+        }
       } else if (matchup.round === 2) {
-        // Ronda 2: Junio 17 (grupos A, B), Junio 18 (C, D), Junio 19 (E, F), Junio 20 (G, H), Junio 21 (I, J, K, L)
+        // Ronda 2: Match 1 is June 17 at 22:00 UTC (5:00 PM Bogota); Match 2 is June 18 at 01:00 UTC (8:00 PM Bogota)
         const dayOffset = Math.floor(gIdx / 2.5); // 0 a 4
-        const dateStr = `2026-06-${17 + dayOffset}T${18 + (mIdx % 2) * 3}:00:00Z`; // 18:00 y 21:00 UTC
-        matchDate = new Date(dateStr);
+        const day = 17 + dayOffset;
+        if (mIdx % 2 === 0) {
+          const dateStr = `2026-06-${String(day).padStart(2, '0')}T22:00:00Z`;
+          matchDate = new Date(dateStr);
+        } else {
+          const dateStr = `2026-06-${String(day + 1).padStart(2, '0')}T01:00:00Z`;
+          matchDate = new Date(dateStr);
+        }
       } else {
-        // Ronda 3 (Simultáneos): Junio 22 (A, B), Junio 23 (C, D), Junio 24 (E, F), Junio 25 (G, H), Junio 26 (I, J), Junio 27 (K, L)
+        // Ronda 3 (Simultáneos): Ambos partidos son el 22 de Junio en adelante a las 19:00 UTC (2:00 PM Bogota)
         const dayOffset = Math.floor(gIdx / 2); // 0 a 5
-        // En la ronda 3, los dos partidos del grupo se juegan a la misma hora exacta (simultaneidad FIFA)
-        const dateStr = `2026-06-${22 + dayOffset}T19:00:00Z`; // Todos los partidos finales de grupo a las 19:00 UTC
+        const day = 22 + dayOffset;
+        const dateStr = `2026-06-${String(day).padStart(2, '0')}T19:00:00Z`;
         matchDate = new Date(dateStr);
       }
 
@@ -219,8 +231,8 @@ async function seed() {
   // Ordenar los partidos por ID para mantener consistencia
   matchesToInsert.sort((a, b) => a.id - b.id);
 
-  console.log(`Insertando ${matchesToInsert.length} partidos de la fase de grupos...`);
-  const { error: insertMatchesError } = await supabase.from('matches').insert(matchesToInsert);
+  console.log(`Upserteando ${matchesToInsert.length} partidos de la fase de grupos...`);
+  const { error: insertMatchesError } = await supabase.from('matches').upsert(matchesToInsert, { onConflict: 'id' });
   if (insertMatchesError) {
     console.error('Error al insertar partidos:', insertMatchesError.message);
     process.exit(1);

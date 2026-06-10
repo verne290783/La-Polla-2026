@@ -109,6 +109,7 @@ create table public.pool_members (
 -- Tabla de predicciones de la Parte 1 (Wizard Pre-Torneo completo)
 create table public.full_tournament_predictions (
   user_id uuid references public.profiles(id) on delete cascade,
+  pool_id uuid not null references public.pools(id) on delete cascade,
   prediction_key text not null, -- ej: 'M1' (partido 1) o 'R32_M73' (cruces simulados)
   predicted_home_score int not null,
   predicted_away_score int not null,
@@ -118,29 +119,33 @@ create table public.full_tournament_predictions (
   predicted_away_team_id text references public.teams(id) on delete set null, -- Equipos simulados por el usuario
   points_earned int,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  primary key (user_id, prediction_key)
+  primary key (user_id, pool_id, prediction_key)
 );
 
 -- Tabla de predicciones de la Parte 2 (Fase a fase en vivo)
 create table public.phase_predictions (
   user_id uuid references public.profiles(id) on delete cascade,
+  pool_id uuid not null references public.pools(id) on delete cascade,
   match_id int references public.matches(id) on delete cascade,
   predicted_home_score int not null,
   predicted_away_score int not null,
   predicted_winner_team_id text references public.teams(id) on delete set null,
   points_earned int,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  primary key (user_id, match_id)
+  primary key (user_id, pool_id, match_id)
 );
 
 -- Tabla de predicción de campeón/subcampeón/tercero (Parte 1)
 create table public.champion_predictions (
-  user_id uuid references public.profiles(id) on delete cascade primary key,
+  user_id uuid references public.profiles(id) on delete cascade,
+  pool_id uuid not null references public.pools(id) on delete cascade,
   champion_team_id text references public.teams(id) on delete set null,
   runner_up_team_id text references public.teams(id) on delete set null,
   third_place_team_id text references public.teams(id) on delete set null,
+  is_locked boolean default false,
   points_earned int,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  primary key (user_id, pool_id)
 );
 
 -- =====================================================================
@@ -222,14 +227,14 @@ create policy "Usuarios pueden modificar sus predicciones de la Parte 1"
   using (auth.uid() = user_id)
   with check (
     auth.uid() = user_id 
-    and get_app_time() < '2026-06-10T13:00:00-04:00'::timestamp with time zone -- Límite de bloqueo Parte 1
+    and get_app_time() < '2026-06-11T12:00:00-04:00'::timestamp with time zone -- Límite de bloqueo Parte 1
   );
 
 create policy "Usuarios pueden ver predicciones de otros si están bloqueadas o son propias"
   on public.full_tournament_predictions for select
   using (
     auth.uid() = user_id
-    or get_app_time() >= '2026-06-10T13:00:00-04:00'::timestamp with time zone
+    or get_app_time() >= '2026-06-11T12:00:00-04:00'::timestamp with time zone
   );
 
 -- Políticas para Phase Predictions (Parte 2)
@@ -254,12 +259,12 @@ create policy "Usuarios pueden modificar sus campeones de la Parte 1"
   using (auth.uid() = user_id)
   with check (
     auth.uid() = user_id
-    and get_app_time() < '2026-06-10T13:00:00-04:00'::timestamp with time zone
+    and get_app_time() < '2026-06-11T12:00:00-04:00'::timestamp with time zone
   );
 
 create policy "Usuarios pueden ver campeones de otros si están bloqueados"
   on public.champion_predictions for select
   using (
     auth.uid() = user_id
-    or get_app_time() >= '2026-06-10T13:00:00-04:00'::timestamp with time zone
+    or get_app_time() >= '2026-06-11T12:00:00-04:00'::timestamp with time zone
   );
