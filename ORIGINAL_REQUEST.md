@@ -181,3 +181,43 @@ Integrity mode: development
 - [ ] La consulta se realiza enviando y filtrando por `pool_id` mediante la función helper `getPoolMemberInfo` en `src/lib/db-helpers.ts`.
 - [ ] La aplicación compila de forma limpia y pasa los linters (`npm run build`).
 
+## Follow-up — 2026-06-10T23:09:17Z
+
+Visualizar de forma solo-lectura los pronósticos de otros integrantes del mismo grupo al hacer clic en su nombre en la tabla de posiciones (LeaderboardTab), mostrando únicamente las predicciones que ya están bloqueadas (cuyo tiempo de edición ha expirado) para evitar copias.
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Apertura de Modal desde Leaderboard
+- En la pestaña de Posiciones (`LeaderboardTab.tsx`), permitir hacer clic en el nombre de cualquier miembro listado en la clasificación del grupo actual.
+- Al hacer clic, abrir un modal emergente, estético y responsivo que cargue los datos de predicciones de ese miembro en el grupo seleccionado.
+
+### R2. Reglas de Visibilidad de Predicciones (Control Anti-Copia)
+- **Parte 1 (Podio):** Mostrar el podio pronosticado del usuario únicamente si ya ha expirado el plazo general de la Parte 1 (es decir, después del 11 de Junio a las 18:00 UTC / 1:00 PM de Bogotá). Si no ha expirado, mostrar un texto claro como: "Podio oculto hasta el cierre de predicciones de la Parte 1".
+- **Parte 2 (Partidos en vivo):** Listar en el modal **únicamente** los partidos que ya estén bloqueados para edición (cuya hora de inicio sea menor a 1 hora a partir del momento actual). Los partidos que aún están abiertos para predicción no deben listarse en el modal, o mostrarse con un indicador de "Oculto hasta el bloqueo" sin revelar los goles pronosticados.
+- Todas las predicciones visibles deben ser estrictamente de solo lectura.
+
+### R3. Estética y Navegación
+- Diseñar el modal con la línea gráfica del portal (colores oscuros, bordes redondeados, acentos verde esmeralda y oro).
+- Incluir un botón de cierre claro ("X") y permitir cerrar presionando la tecla Escape o haciendo clic fuera del modal.
+
+## Acceptance Criteria
+
+### UI & UX
+- [ ] Hacer clic en el nombre de un miembro de la clasificación abre un modal sobre la misma pestaña.
+- [ ] El modal contiene secciones separadas para el Podio (Parte 1) y los partidos individuales (Parte 2).
+- [ ] Si el plazo de la Parte 1 no ha vencido, el podio no se revela y muestra una etiqueta de confidencialidad.
+- [ ] En la lista de la Parte 2, solo son visibles los partidos cuyo tiempo límite de edición (kickoff - 1 hora) haya transcurrido. No se revela el pronóstico de los partidos activos/futuros.
+- [ ] El modal se cierra correctamente al pulsar el botón de cierre, regresar con la tecla Escape, o hacer clic fuera del modal.
+
+### Funcionalidad y Seguridad
+- [ ] La consulta de predicciones y las restricciones de tiempo se comparan contra la hora real del cliente/servidor (`new Date()`) de manera robusta.
+- [ ] La aplicación compila de forma limpia sin errores de compilación (`npm run build`).
+
+## Follow-up — 2026-06-10T23:16:37Z
+
+El usuario ha modificado directamente el archivo `src/components/dashboard/LeaderboardTab.tsx` introduciendo la interfaz del modal de predicciones. Por favor, examina estos cambios, completa la lógica necesaria si falta algo, y ejecuta la compilación y pruebas para verificar que todo funcione correctamente y cumpla los criterios de aceptación.
+
+
