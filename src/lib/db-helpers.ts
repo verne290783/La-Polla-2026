@@ -247,3 +247,16 @@ export async function updateMatchResult(
   if (error) throw error;
   return data;
 }
+
+// 14. Obtener información de un miembro en un grupo específico (puntos por grupo)
+export async function getPoolMemberInfo(userId: string, poolId: string) {
+  const { data, error } = await supabase
+    .from('pool_members')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('pool_id', poolId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}

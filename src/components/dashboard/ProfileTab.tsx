@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getProfile, getChampionPrediction, getP2Predictions, getTeams, getUserPools } from '@/lib/db-helpers';
+import { getProfile, getChampionPrediction, getP2Predictions, getTeams, getUserPools, getPoolMemberInfo } from '@/lib/db-helpers';
 import TeamFlag from '@/components/common/TeamFlag';
 
 interface ProfileTabProps {
@@ -10,38 +10,71 @@ interface ProfileTabProps {
 
 export default function ProfileTab({ userId }: ProfileTabProps) {
   const [profile, setProfile] = useState<any>(null);
+  const [pools, setPools] = useState<any[]>([]);
+  const [selectedPoolId, setSelectedPoolId] = useState<string>('');
+  const [poolMemberInfo, setPoolMemberInfo] = useState<any>(null);
   const [championPred, setChampionPred] = useState<any>(null);
   const [p2Predictions, setP2Predictions] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPoolStats, setLoadingPoolStats] = useState(false);
 
   useEffect(() => {
-    async function loadProfileData() {
+    async function initProfile() {
       try {
         setLoading(true);
-        const userPools = await getUserPools(userId);
-        const poolId = userPools.length > 0 ? userPools[0].id : '';
-
-        const [prof, champ, p2Preds, allTeams] = await Promise.all([
+        const [prof, allTeams, userPools] = await Promise.all([
           getProfile(userId),
-          poolId ? getChampionPrediction(userId, poolId) : null,
-          poolId ? getP2Predictions(userId, poolId) : [],
-          getTeams()
+          getTeams(),
+          getUserPools(userId)
         ]);
 
         setProfile(prof);
-        setChampionPred(champ);
-        setP2Predictions(p2Preds || []);
         setTeams(allTeams);
+        setPools(userPools);
+
+        if (userPools.length > 0) {
+          setSelectedPoolId(userPools[0].id);
+        }
       } catch (err) {
-        console.error('Error al cargar datos del perfil:', err);
+        console.error('Error al inicializar el perfil:', err);
       } finally {
         setLoading(false);
       }
     }
 
-    loadProfileData();
+    initProfile();
   }, [userId]);
+
+  useEffect(() => {
+    async function loadPoolSpecificData() {
+      if (!selectedPoolId) {
+        setChampionPred(null);
+        setP2Predictions([]);
+        setPoolMemberInfo(null);
+        return;
+      }
+
+      try {
+        setLoadingPoolStats(true);
+        const [champ, p2Preds, memberInfo] = await Promise.all([
+          getChampionPrediction(userId, selectedPoolId),
+          getP2Predictions(userId, selectedPoolId),
+          getPoolMemberInfo(userId, selectedPoolId)
+        ]);
+
+        setChampionPred(champ);
+        setP2Predictions(p2Preds || []);
+        setPoolMemberInfo(memberInfo);
+      } catch (err) {
+        console.error('Error al cargar estadísticas específicas del grupo:', err);
+      } finally {
+        setLoadingPoolStats(false);
+      }
+    }
+
+    loadPoolSpecificData();
+  }, [userId, selectedPoolId]);
 
   if (loading) {
     return (
@@ -99,15 +132,44 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
         </div>
 
         {/* Gran total a la derecha */}
-        <div className="px-8 py-4 rounded-xl bg-neutral-900/60 border border-neutral-800 text-center">
-          <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Mi Puntaje</p>
-          <p className="text-4xl font-black text-white mt-1">{profile?.total_points || 0}</p>
-          <p className="text-[10px] text-neutral-500 font-medium mt-1">puntos totales</p>
+        <div className="px-8 py-4 rounded-xl bg-neutral-900/60 border border-neutral-800 text-center min-w-[145px] shrink-0">
+          <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Puntaje Grupo</p>
+          <p className="text-4xl font-black text-white mt-1">
+            {selectedPoolId ? (poolMemberInfo?.total_points || 0) : 0}
+          </p>
+          <p className="text-[9px] text-neutral-400 font-bold mt-1 uppercase tracking-wider">
+            {selectedPoolId ? 'En esta liga' : 'Sin grupo'}
+          </p>
+          <div className="border-t border-neutral-800/80 mt-2.5 pt-1.5 text-[10px] text-neutral-500 font-semibold">
+            Global: <span className="text-emerald-400">{profile?.total_points || 0} pts</span>
+          </div>
         </div>
       </div>
 
+      {/* Selector de Grupo para Estadísticas */}
+      {pools.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-5 rounded-2xl glass-card border border-neutral-800/60 shadow-lg gap-4">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">👥</span>
+            <div>
+              <p className="text-sm font-extrabold text-white">Grupo para Estadísticas</p>
+              <p className="text-[10px] text-neutral-400 mt-0.5">Filtrar rendimiento y podio de la polla por grupo.</p>
+            </div>
+          </div>
+          <select
+            value={selectedPoolId}
+            onChange={(e) => setSelectedPoolId(e.target.value)}
+            className="px-4 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-white font-bold text-sm focus:outline-none focus:border-emerald-500/50 cursor-pointer min-w-[200px]"
+          >
+            {pools.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Grid de Secciones */}
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className={`grid md:grid-cols-2 gap-8 transition-opacity duration-300 ${loadingPoolStats ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         
         {/* Bloque 1: Predicción de Campeón / Podio (Parte 1) */}
         <div className="p-6 rounded-2xl glass-card border border-neutral-800/60 shadow-lg space-y-6">
