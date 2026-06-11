@@ -228,25 +228,31 @@ export default function HomeTab({ userId, onNavigateToTab }: HomeTabProps) {
                   </div>
 
                   {/* Marcador */}
-                  <div className="grid grid-cols-7 items-center justify-items-center mb-2">
-                    <span className="text-2xl col-span-2 text-right w-full pr-2 font-bold text-white truncate">
-                      {match.home_team_id}
-                    </span>
-                    <span className="text-3xl text-center flex items-center justify-center">
-                      <TeamFlag teamId={match.home_team_id} fallbackEmoji={teamsFlags[match.home_team_id] || '🏳️'} className="w-8 h-6" />
-                    </span>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    {/* Home */}
+                    <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                      <span className="text-2xl font-bold text-white truncate">
+                        {match.home_team_id}
+                      </span>
+                      <span className="text-3xl flex-shrink-0 flex items-center justify-center">
+                        <TeamFlag teamId={match.home_team_id} fallbackEmoji={teamsFlags[match.home_team_id] || '🏳️'} className="w-8 h-6" />
+                      </span>
+                    </div>
                     
                     {/* Scores reales */}
-                    <div className="col-span-1 text-center font-black text-2xl text-white">
+                    <div className="flex-shrink-0 flex items-center justify-center font-black text-2xl text-white">
                       {isFinished || isLive ? `${match.home_score} - ${match.away_score}` : 'vs'}
                     </div>
 
-                    <span className="text-3xl text-center flex items-center justify-center">
-                      <TeamFlag teamId={match.away_team_id} fallbackEmoji={teamsFlags[match.away_team_id] || '🏳️'} className="w-8 h-6" />
-                    </span>
-                    <span className="text-2xl col-span-2 text-left w-full pl-2 font-bold text-white truncate">
-                      {match.away_team_id}
-                    </span>
+                    {/* Away */}
+                    <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                      <span className="text-3xl flex-shrink-0 flex items-center justify-center">
+                        <TeamFlag teamId={match.away_team_id} fallbackEmoji={teamsFlags[match.away_team_id] || '🏳️'} className="w-8 h-6" />
+                      </span>
+                      <span className="text-2xl font-bold text-white truncate">
+                        {match.away_team_id}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Estado / Botón de acción */}

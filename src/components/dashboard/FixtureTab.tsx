@@ -738,22 +738,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                     return (
                       <div key={match.id} className="p-4 rounded-xl glass-card border border-neutral-800/40 flex flex-col justify-between">
                         <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-2.5">Partido #{match.id}</span>
-                        <div className="grid grid-cols-7 items-center gap-2">
+                        <div className="flex items-center justify-between gap-3">
                           {/* Home */}
-                          <div className="col-span-2 text-right font-bold text-xs truncate">{match.home_team_id}</div>
-                          <span className="text-2xl text-center flex items-center justify-center">
-                            <TeamFlag teamId={match.home_team_id} fallbackEmoji={teamsFlags[match.home_team_id] || '🏳️'} />
-                          </span>
+                          <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                            <span className="font-bold text-xs truncate">{match.home_team_id}</span>
+                            <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                              <TeamFlag teamId={match.home_team_id} fallbackEmoji={teamsFlags[match.home_team_id] || '🏳️'} />
+                            </span>
+                          </div>
                           
                           {/* Score Inputs */}
-                          <div className="col-span-1 flex items-center gap-1 justify-center">
+                          <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                             <input
                               type="number"
                               min={0}
                               value={pred.homeScore}
                               onChange={(e) => handleP1GroupScoreChange(match.id, 'home', e.target.value)}
                               disabled={p1Locked}
-                              className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                              className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
                             <span className="text-neutral-500 text-xs font-semibold">-</span>
                             <input
@@ -762,15 +764,17 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                               value={pred.awayScore}
                               onChange={(e) => handleP1GroupScoreChange(match.id, 'away', e.target.value)}
                               disabled={p1Locked}
-                              className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                              className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
                           </div>
 
-                          <span className="text-2xl text-center flex items-center justify-center">
-                            <TeamFlag teamId={match.away_team_id} fallbackEmoji={teamsFlags[match.away_team_id] || '🏳️'} />
-                          </span>
                           {/* Away */}
-                          <div className="col-span-2 text-left font-bold text-xs truncate">{match.away_team_id}</div>
+                          <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                            <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                              <TeamFlag teamId={match.away_team_id} fallbackEmoji={teamsFlags[match.away_team_id] || '🏳️'} />
+                            </span>
+                            <span className="font-bold text-xs truncate">{match.away_team_id}</span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -867,22 +871,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                         <span>Partido #{m.id}</span>
                       </div>
                       
-                      <div className="grid grid-cols-7 items-center gap-2">
+                      <div className="flex items-center justify-between gap-3">
                         {/* Home */}
-                        <div className="col-span-2 text-right font-bold text-xs truncate">{m.homeTeam.name}</div>
-                        <span className="text-2xl text-center flex items-center justify-center">
-                          <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
-                        </span>
+                        <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                          <span className="font-bold text-xs truncate">{m.homeTeam.name}</span>
+                          <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                            <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
+                          </span>
+                        </div>
                         
                         {/* Score inputs */}
-                        <div className="col-span-1 flex items-center gap-1 justify-center">
+                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                           <input
                             type="number"
                             min={0}
                             value={pred.homeScore}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
                             disabled={p1Locked}
-                            className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
                           <span className="text-neutral-500 text-xs font-semibold">-</span>
                           <input
@@ -891,15 +897,17 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                             value={pred.awayScore}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
                             disabled={p1Locked}
-                            className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
                         </div>
 
-                        <span className="text-2xl text-center flex items-center justify-center">
-                          <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
-                        </span>
                         {/* Away */}
-                        <div className="col-span-2 text-left font-bold text-xs truncate">{m.awayTeam.name}</div>
+                        <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                          <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                            <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
+                          </span>
+                          <span className="font-bold text-xs truncate">{m.awayTeam.name}</span>
+                        </div>
                       </div>
 
                       {/* Selector de ganador manual en caso de empate */}
@@ -952,20 +960,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                   return (
                     <div key={m.id} className="p-4 rounded-xl glass-card border border-neutral-800/40 space-y-3">
                       <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Partido #{m.id}</span>
-                      <div className="grid grid-cols-7 items-center gap-2">
-                        <div className="col-span-2 text-right font-bold text-xs truncate">{m.homeTeam.name}</div>
-                        <span className="text-2xl text-center flex items-center justify-center">
-                          <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
-                        </span>
+                      <div className="flex items-center justify-between gap-3">
+                        {/* Home */}
+                        <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                          <span className="font-bold text-xs truncate">{m.homeTeam.name}</span>
+                          <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                            <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
+                          </span>
+                        </div>
                         
-                        <div className="col-span-1 flex items-center gap-1 justify-center">
+                        {/* Score inputs */}
+                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                           <input
                             type="number"
                             min={0}
                             value={pred.homeScore}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
                             disabled={p1Locked}
-                            className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
                           <span className="text-neutral-500 text-xs font-semibold">-</span>
                           <input
@@ -974,14 +986,17 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                             value={pred.awayScore}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
                             disabled={p1Locked}
-                            className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
                         </div>
 
-                        <span className="text-2xl text-center flex items-center justify-center">
-                          <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
-                        </span>
-                        <div className="col-span-2 text-left font-bold text-xs truncate">{m.awayTeam.name}</div>
+                        {/* Away */}
+                        <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                          <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                            <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
+                          </span>
+                          <span className="font-bold text-xs truncate">{m.awayTeam.name}</span>
+                        </div>
                       </div>
 
                       {isDraw && (
@@ -1033,20 +1048,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                   return (
                     <div key={m.id} className="p-4 rounded-xl glass-card border border-neutral-800/40 space-y-3">
                       <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Partido #{m.id}</span>
-                      <div className="grid grid-cols-7 items-center gap-2">
-                        <div className="col-span-2 text-right font-bold text-xs truncate">{m.homeTeam.name}</div>
-                        <span className="text-2xl text-center flex items-center justify-center">
-                          <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
-                        </span>
+                      <div className="flex items-center justify-between gap-3">
+                        {/* Home */}
+                        <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                          <span className="font-bold text-xs truncate">{m.homeTeam.name}</span>
+                          <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                            <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
+                          </span>
+                        </div>
                         
-                        <div className="col-span-1 flex items-center gap-1 justify-center">
+                        {/* Score inputs */}
+                        <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                           <input
                             type="number"
                             min={0}
                             value={pred.homeScore}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
                             disabled={p1Locked}
-                            className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
                           <span className="text-neutral-500 text-xs font-semibold">-</span>
                           <input
@@ -1055,14 +1074,17 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                             value={pred.awayScore}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
                             disabled={p1Locked}
-                            className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
                         </div>
 
-                        <span className="text-2xl text-center flex items-center justify-center">
-                          <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
-                        </span>
-                        <div className="col-span-2 text-left font-bold text-xs truncate">{m.awayTeam.name}</div>
+                        {/* Away */}
+                        <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                          <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                            <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
+                          </span>
+                          <span className="font-bold text-xs truncate">{m.awayTeam.name}</span>
+                        </div>
                       </div>
 
                       {isDraw && (
@@ -1116,20 +1138,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                     return (
                       <div key={m.id} className="p-4 rounded-xl glass-card border border-neutral-800/40 space-y-3">
                         <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Partido #{m.id}</span>
-                        <div className="grid grid-cols-7 items-center gap-2">
-                          <div className="col-span-2 text-right font-bold text-xs truncate">{m.homeTeam.name}</div>
-                          <span className="text-2xl text-center flex items-center justify-center">
-                            <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
-                          </span>
+                        <div className="flex items-center justify-between gap-3">
+                          {/* Home */}
+                          <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                            <span className="font-bold text-xs truncate">{m.homeTeam.name}</span>
+                            <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                              <TeamFlag teamId={m.homeTeam.id} fallbackEmoji={m.homeTeam.flag_emoji} />
+                            </span>
+                          </div>
                           
-                          <div className="col-span-1 flex items-center gap-1 justify-center">
+                          {/* Score inputs */}
+                          <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                             <input
                               type="number"
                               min={0}
                               value={pred.homeScore}
                               onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
                               disabled={p1Locked}
-                              className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                              className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
                             <span className="text-neutral-500 text-xs font-semibold">-</span>
                             <input
@@ -1138,14 +1164,17 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                               value={pred.awayScore}
                               onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
                               disabled={p1Locked}
-                              className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                              className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
                           </div>
 
-                          <span className="text-2xl text-center flex items-center justify-center">
-                            <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
-                          </span>
-                          <div className="col-span-2 text-left font-bold text-xs truncate">{m.awayTeam.name}</div>
+                          {/* Away */}
+                          <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                            <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                              <TeamFlag teamId={m.awayTeam.id} fallbackEmoji={m.awayTeam.flag_emoji} />
+                            </span>
+                            <span className="font-bold text-xs truncate">{m.awayTeam.name}</span>
+                          </div>
                         </div>
 
                         {isDraw && (
@@ -1190,20 +1219,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                   <h3 className="text-sm font-bold text-amber-700 uppercase tracking-wider">Partido por el Tercer Puesto</h3>
                   <div className="p-4 rounded-xl glass-card border border-neutral-800/40 space-y-3">
                     <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Partido #103</span>
-                    <div className="grid grid-cols-7 items-center gap-2">
-                      <div className="col-span-2 text-right font-bold text-xs truncate">{thirdPlace.homeTeam.name}</div>
-                      <span className="text-2xl text-center flex items-center justify-center">
-                        <TeamFlag teamId={thirdPlace.homeTeam.id} fallbackEmoji={thirdPlace.homeTeam.flag_emoji} />
-                      </span>
+                    <div className="flex items-center justify-between gap-3">
+                      {/* Home */}
+                      <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                        <span className="font-bold text-xs truncate">{thirdPlace.homeTeam.name}</span>
+                        <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                          <TeamFlag teamId={thirdPlace.homeTeam.id} fallbackEmoji={thirdPlace.homeTeam.flag_emoji} />
+                        </span>
+                      </div>
                       
-                      <div className="col-span-1 flex items-center gap-1 justify-center">
+                      {/* Score inputs */}
+                      <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                         <input
                           type="number"
                           min={0}
                           value={p1KoPreds['P1_SF_M103']?.homeScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M103', 'home', e.target.value)}
                           disabled={p1Locked}
-                          className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                          className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
                         <span className="text-neutral-500 text-xs font-semibold">-</span>
                         <input
@@ -1212,14 +1245,17 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           value={p1KoPreds['P1_SF_M103']?.awayScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M103', 'away', e.target.value)}
                           disabled={p1Locked}
-                          className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                          className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
                       </div>
 
-                      <span className="text-2xl text-center flex items-center justify-center">
-                        <TeamFlag teamId={thirdPlace.awayTeam.id} fallbackEmoji={thirdPlace.awayTeam.flag_emoji} />
-                      </span>
-                      <div className="col-span-2 text-left font-bold text-xs truncate">{thirdPlace.awayTeam.name}</div>
+                      {/* Away */}
+                      <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                        <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                          <TeamFlag teamId={thirdPlace.awayTeam.id} fallbackEmoji={thirdPlace.awayTeam.flag_emoji} />
+                        </span>
+                        <span className="font-bold text-xs truncate">{thirdPlace.awayTeam.name}</span>
+                      </div>
                     </div>
 
                     {(p1KoPreds['P1_SF_M103']?.homeScore ?? 0) === (p1KoPreds['P1_SF_M103']?.awayScore ?? 0) && (
@@ -1259,20 +1295,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                   <h3 className="text-sm font-bold text-amber-500 uppercase tracking-wider">La Gran Final</h3>
                   <div className="p-4 rounded-xl glass-card border border-amber-500/20 space-y-3 shadow-amber-500/5">
                     <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Partido #104</span>
-                    <div className="grid grid-cols-7 items-center gap-2">
-                      <div className="col-span-2 text-right font-bold text-xs truncate">{finalMatch.homeTeam.name}</div>
-                      <span className="text-2xl text-center flex items-center justify-center">
-                        <TeamFlag teamId={finalMatch.homeTeam.id} fallbackEmoji={finalMatch.homeTeam.flag_emoji} />
-                      </span>
+                    <div className="flex items-center justify-between gap-3">
+                      {/* Home */}
+                      <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                        <span className="font-bold text-xs truncate">{finalMatch.homeTeam.name}</span>
+                        <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                          <TeamFlag teamId={finalMatch.homeTeam.id} fallbackEmoji={finalMatch.homeTeam.flag_emoji} />
+                        </span>
+                      </div>
                       
-                      <div className="col-span-1 flex items-center gap-1 justify-center">
+                      {/* Score inputs */}
+                      <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                         <input
                           type="number"
                           min={0}
                           value={p1KoPreds['P1_SF_M104']?.homeScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M104', 'home', e.target.value)}
                           disabled={p1Locked}
-                          className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                          className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
                         <span className="text-neutral-500 text-xs font-semibold">-</span>
                         <input
@@ -1281,14 +1321,17 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           value={p1KoPreds['P1_SF_M104']?.awayScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M104', 'away', e.target.value)}
                           disabled={p1Locked}
-                          className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                          className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
                       </div>
 
-                      <span className="text-2xl text-center flex items-center justify-center">
-                        <TeamFlag teamId={finalMatch.awayTeam.id} fallbackEmoji={finalMatch.awayTeam.flag_emoji} />
-                      </span>
-                      <div className="col-span-2 text-left font-bold text-xs truncate">{finalMatch.awayTeam.name}</div>
+                      {/* Away */}
+                      <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                        <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                          <TeamFlag teamId={finalMatch.awayTeam.id} fallbackEmoji={finalMatch.awayTeam.flag_emoji} />
+                        </span>
+                        <span className="font-bold text-xs truncate">{finalMatch.awayTeam.name}</span>
+                      </div>
                     </div>
 
                     {(p1KoPreds['P1_SF_M104']?.homeScore ?? 0) === (p1KoPreds['P1_SF_M104']?.awayScore ?? 0) && (
@@ -1541,24 +1584,26 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                               )}
 
                               {/* Input de Predicción */}
-                              <div className="grid grid-cols-7 items-center gap-2">
+                              <div className="flex items-center justify-between gap-3">
                                 {/* Home */}
-                                <div className="col-span-2 text-right font-bold text-xs truncate">
-                                  {match.home_team_id || 'Por definir'}
+                                <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3 min-w-0">
+                                  <span className="font-bold text-xs truncate">
+                                    {match.home_team_id || 'Por definir'}
+                                  </span>
+                                  <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                                    <TeamFlag teamId={match.home_team_id} fallbackEmoji={teamsFlags[match.home_team_id] || '🏳️'} />
+                                  </span>
                                 </div>
-                                <span className="text-2xl text-center flex items-center justify-center">
-                                  <TeamFlag teamId={match.home_team_id} fallbackEmoji={teamsFlags[match.home_team_id] || '🏳️'} />
-                                </span>
 
                                 {/* Score Inputs */}
-                                <div className="col-span-1 flex items-center justify-center gap-1">
+                                <div className="flex-shrink-0 flex items-center gap-1 sm:gap-1.5 justify-center">
                                   <input
                                     type="number"
                                     min={0}
                                     value={pred.homeScore}
                                     onChange={(e) => handleP2ScoreChange(match.id, 'home', e.target.value)}
                                     disabled={isLocked || !match.home_team_id || !match.away_team_id}
-                                    className="w-9 h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                                    className="w-11 h-11 sm:w-9 sm:h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
                                   />
                                   <span className="text-neutral-500 text-xs">-</span>
                                   <input
@@ -1567,16 +1612,18 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                     value={pred.awayScore}
                                     onChange={(e) => handleP2ScoreChange(match.id, 'away', e.target.value)}
                                     disabled={isLocked || !match.home_team_id || !match.away_team_id}
-                                    className="w-9 h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                                    className="w-11 h-11 sm:w-9 sm:h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
                                   />
                                 </div>
 
-                                <span className="text-2xl text-center flex items-center justify-center">
-                                  <TeamFlag teamId={match.away_team_id} fallbackEmoji={teamsFlags[match.away_team_id] || '🏳️'} />
-                                </span>
                                 {/* Away */}
-                                <div className="col-span-2 text-left font-bold text-xs truncate">
-                                  {match.away_team_id || 'Por definir'}
+                                <div className="flex-1 flex items-center justify-start gap-2 sm:gap-3 min-w-0">
+                                  <span className="text-2xl flex-shrink-0 flex items-center justify-center">
+                                    <TeamFlag teamId={match.away_team_id} fallbackEmoji={teamsFlags[match.away_team_id] || '🏳️'} />
+                                  </span>
+                                  <span className="font-bold text-xs truncate">
+                                    {match.away_team_id || 'Por definir'}
+                                  </span>
                                 </div>
                               </div>
 
