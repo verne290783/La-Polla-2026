@@ -79,11 +79,20 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     }
   }, [userId, selectedPoolId]);
 
-  // Timer interval for lock counts in P2 (usando hora real)
+  // Timer interval for lock counts in P2 (usando hora real) y bloqueo en vivo de la Parte 1
   useEffect(() => {
     const interval = setInterval(() => {
       const remaining: Record<number, string> = {};
       const vTime = new Date().getTime();
+      
+      // Bloqueo en tiempo real de la Parte 1 al llegar a la hora límite
+      const isPastP1Limit = vTime >= LOCK_PART1_DATE.getTime();
+      if (isPastP1Limit) {
+        setP1Locked(prev => {
+          if (!prev) return true;
+          return prev;
+        });
+      }
       
       matches.forEach(m => {
         const lockTime = new Date(m.lock_time_part2).getTime();
