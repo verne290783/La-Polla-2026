@@ -17,7 +17,8 @@ import {
   calculateGroupStandings, 
   getBestThirdPlacedTeams, 
   generateRoundOf32, 
-  simulateNextRounds 
+  simulateNextRounds,
+  TEAM_TO_GROUP
 } from '@/lib/fifa/bracket';
 
 interface FixtureTabProps {
@@ -180,10 +181,12 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
   const groupTeamsMap: Record<string, string[]> = {};
   matches.forEach(m => {
     if (m.phase === 'group') {
-      const gName = m.external_match_id.split('_')[2]; // WC26_G_A_1 -> A
-      if (!groupTeamsMap[gName]) groupTeamsMap[gName] = [];
-      if (!groupTeamsMap[gName].includes(m.home_team_id)) groupTeamsMap[gName].push(m.home_team_id);
-      if (!groupTeamsMap[gName].includes(m.away_team_id)) groupTeamsMap[gName].push(m.away_team_id);
+      const gName = TEAM_TO_GROUP[m.home_team_id] || TEAM_TO_GROUP[m.away_team_id];
+      if (gName) {
+        if (!groupTeamsMap[gName]) groupTeamsMap[gName] = [];
+        if (!groupTeamsMap[gName].includes(m.home_team_id)) groupTeamsMap[gName].push(m.home_team_id);
+        if (!groupTeamsMap[gName].includes(m.away_team_id)) groupTeamsMap[gName].push(m.away_team_id);
+      }
     }
   });
 
@@ -729,7 +732,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
               {/* Fixture de Partidos del Grupo Seleccionado */}
               <div className="grid gap-4 md:grid-cols-2">
                 {groupMatches
-                  .filter(m => m.external_match_id.split('_')[2] === activeGroupWizard)
+                  .filter(m => (TEAM_TO_GROUP[m.home_team_id] || TEAM_TO_GROUP[m.away_team_id]) === activeGroupWizard)
                   .map(match => {
                     const pred = p1GroupPreds[match.id] || { homeScore: 0, awayScore: 0 };
                     return (

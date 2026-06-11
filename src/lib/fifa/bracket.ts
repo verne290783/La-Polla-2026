@@ -6,6 +6,21 @@ export interface Team {
   confederation: string;
 }
 
+export const TEAM_TO_GROUP: Record<string, string> = {
+  MEX: 'A', RSA: 'A', KOR: 'A', CZE: 'A',
+  CAN: 'B', SUI: 'B', QAT: 'B', BIH: 'B',
+  BRA: 'C', MAR: 'C', HAI: 'C', SCO: 'C',
+  USA: 'D', PAR: 'D', AUS: 'D', TUR: 'D',
+  GER: 'E', CUW: 'E', CIV: 'E', ECU: 'E',
+  NED: 'F', JPN: 'F', SWE: 'F', TUN: 'F',
+  BEL: 'G', EGY: 'G', IRN: 'G', NZL: 'G',
+  ESP: 'H', CPV: 'H', KSA: 'H', URU: 'H',
+  FRA: 'I', SEN: 'I', NOR: 'I', IRQ: 'I',
+  ARG: 'J', ALG: 'J', AUT: 'J', JOR: 'J',
+  POR: 'K', COD: 'K', UZB: 'K', COL: 'K',
+  ENG: 'L', CRO: 'L', GHA: 'L', PAN: 'L',
+};
+
 export interface TeamStanding {
   team: Team;
   group: string;
@@ -64,7 +79,7 @@ export function calculateGroupStandings(
     const awayTeamId = match.away_team_id;
 
     // Encontrar el grupo
-    const groupName = match.external_match_id.split('_')[2]; // ej: WC26_G_A_1 -> 'A'
+    const groupName = TEAM_TO_GROUP[homeTeamId] || TEAM_TO_GROUP[awayTeamId];
     const groupTable = standings[groupName];
     if (!groupTable) continue;
 
