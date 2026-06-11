@@ -227,14 +227,14 @@ create policy "Usuarios pueden modificar sus predicciones de la Parte 1"
   using (auth.uid() = user_id)
   with check (
     auth.uid() = user_id 
-    and get_app_time() < '2026-06-11T12:00:00-04:00'::timestamp with time zone -- Límite de bloqueo Parte 1
+    and get_app_time() < '2026-06-11T18:00:00Z'::timestamp with time zone -- Límite de bloqueo Parte 1
   );
 
 create policy "Usuarios pueden ver predicciones de otros si están bloqueadas o son propias"
   on public.full_tournament_predictions for select
   using (
     auth.uid() = user_id
-    or get_app_time() >= '2026-06-11T12:00:00-04:00'::timestamp with time zone
+    or get_app_time() >= '2026-06-11T18:00:00Z'::timestamp with time zone
   );
 
 -- Políticas para Phase Predictions (Parte 2)
@@ -259,12 +259,12 @@ create policy "Usuarios pueden modificar sus campeones de la Parte 1"
   using (auth.uid() = user_id)
   with check (
     auth.uid() = user_id
-    and get_app_time() < '2026-06-11T12:00:00-04:00'::timestamp with time zone
+    and get_app_time() < '2026-06-11T18:00:00Z'::timestamp with time zone
   );
 
 create policy "Usuarios pueden ver campeones de otros si están bloqueados"
   on public.champion_predictions for select
   using (
     auth.uid() = user_id
-    or get_app_time() >= '2026-06-11T12:00:00-04:00'::timestamp with time zone
+    or get_app_time() >= '2026-06-11T18:00:00Z'::timestamp with time zone
   );
