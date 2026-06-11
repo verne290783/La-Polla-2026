@@ -39,13 +39,13 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
   // Parte 1 Wizard State
   const [wizardStep, setWizardStep] = useState(1); // 1: Grupos, 2: Tablas/3ros, 3: R32, 4: R16, 5: QF, 6: SF/Final, 7: Podio
-  const [p1GroupPreds, setP1GroupPreds] = useState<Record<number, { homeScore: number; awayScore: number }>>({});
-  const [p1KoPreds, setP1KoPreds] = useState<Record<string, { homeScore: number; awayScore: number; winnerId?: string }>>({});
+  const [p1GroupPreds, setP1GroupPreds] = useState<Record<number, { homeScore: number | ''; awayScore: number | '' }>>({});
+  const [p1KoPreds, setP1KoPreds] = useState<Record<string, { homeScore: number | ''; awayScore: number | ''; winnerId?: string }>>({});
   const [p1Locked, setP1Locked] = useState(false);
   const [activeGroupWizard, setActiveGroupWizard] = useState<'A'|'B'|'C'|'D'|'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'>('A');
 
   // Parte 2 Live Predictions Feed State
-  const [p2Preds, setP2Preds] = useState<Record<number, { homeScore: number; awayScore: number }>>({});
+  const [p2Preds, setP2Preds] = useState<Record<number, { homeScore: number | ''; awayScore: number | '' }>>({});
   const [submittingMatchId, setSubmittingMatchId] = useState<number | null>(null);
 
   // Countdown timer for P2
@@ -131,8 +131,8 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       setP1Locked(isPastP1Limit || hasLockedP1);
 
       // Inicializar predicciones P1 del usuario si existen
-      const groupPredsLocal: Record<number, { homeScore: number; awayScore: number }> = {};
-      const koPredsLocal: Record<string, { homeScore: number; awayScore: number; winnerId?: string }> = {};
+      const groupPredsLocal: Record<number, { homeScore: number | ''; awayScore: number | '' }> = {};
+      const koPredsLocal: Record<string, { homeScore: number | ''; awayScore: number | ''; winnerId?: string }> = {};
 
       p1PredsList.forEach(p => {
         if (p.phase === 'group') {
@@ -158,7 +158,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       setP1KoPreds(koPredsLocal);
 
       // --- Cargar Parte 2 ---
-      const p2PredsLocal: Record<number, { homeScore: number; awayScore: number }> = {};
+      const p2PredsLocal: Record<number, { homeScore: number | ''; awayScore: number | '' }> = {};
       p2PredsList.forEach(p => {
         p2PredsLocal[p.match_id] = {
           homeScore: p.predicted_home_score,
@@ -190,11 +190,33 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     }
   });
 
+  // Derived sanitized prediction states mapping any "" value to 0
+  const sanitizedGroupPreds: Record<number, { homeScore: number; awayScore: number }> = Object.fromEntries(
+    Object.entries(p1GroupPreds).map(([key, pred]) => [
+      Number(key),
+      {
+        homeScore: pred.homeScore === '' ? 0 : pred.homeScore,
+        awayScore: pred.awayScore === '' ? 0 : pred.awayScore
+      }
+    ])
+  );
+
+  const sanitizedKoPreds: Record<string, { homeScore: number; awayScore: number; winnerId?: string }> = Object.fromEntries(
+    Object.entries(p1KoPreds).map(([key, pred]) => [
+      key,
+      {
+        homeScore: pred.homeScore === '' ? 0 : pred.homeScore,
+        awayScore: pred.awayScore === '' ? 0 : pred.awayScore,
+        winnerId: pred.winnerId
+      }
+    ])
+  );
+
   // Calcular tabla de posiciones en base a las predicciones locales del usuario
   const groupStandings = calculateGroupStandings(
     teams,
     groupTeamsMap,
-    p1GroupPreds,
+    sanitizedGroupPreds,
     groupMatches
   );
 
@@ -204,12 +226,13 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
   const r32Matches = generateRoundOf32(groupStandings, bestThirds);
 
   // Simular rondas posteriores
-  const { r16, qf, sf, thirdPlace, finalMatch } = simulateNextRounds(r32Matches, p1KoPreds);
+  const { r16, qf, sf, thirdPlace, finalMatch } = simulateNextRounds(r32Matches, sanitizedKoPreds);
 
   // Handlers para inputs de Parte 1
   const handleP1GroupScoreChange = (matchId: number, side: 'home' | 'away', val: string) => {
     if (p1Locked) return;
-    const num = val === '' ? 0 : Math.max(0, parseInt(val, 10));
+    const num = val === '' ? '' : Math.max(0, parseInt(val, 10));
+    if (num !== '' && isNaN(num)) return;
     setP1GroupPreds(prev => {
       const current = prev[matchId] || { homeScore: 0, awayScore: 0 };
       return {
@@ -222,9 +245,26 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     });
   };
 
+  const handleP1GroupBlur = (matchId: number, side: 'home' | 'away') => {
+    setP1GroupPreds(prev => {
+      const current = prev[matchId];
+      if (current && current[side === 'home' ? 'homeScore' : 'awayScore'] === '') {
+        return {
+          ...prev,
+          [matchId]: {
+            ...current,
+            [side === 'home' ? 'homeScore' : 'awayScore']: 0
+          }
+        };
+      }
+      return prev;
+    });
+  };
+
   const handleP1KoScoreChange = (predKey: string, side: 'home' | 'away', val: string) => {
     if (p1Locked) return;
-    const num = val === '' ? 0 : Math.max(0, parseInt(val, 10));
+    const num = val === '' ? '' : Math.max(0, parseInt(val, 10));
+    if (num !== '' && isNaN(num)) return;
     setP1KoPreds(prev => {
       const current = prev[predKey] || { homeScore: 0, awayScore: 0 };
       const updated = {
@@ -233,13 +273,35 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       };
 
       // Limpiar ganador manual si se rompe el empate
-      if (side === 'home' && num !== current.awayScore) delete updated.winnerId;
-      if (side === 'away' && num !== current.homeScore) delete updated.winnerId;
+      const homeVal = side === 'home' ? num : current.homeScore;
+      const awayVal = side === 'away' ? num : current.awayScore;
+      const homeSanitized = homeVal === '' ? 0 : homeVal;
+      const awaySanitized = awayVal === '' ? 0 : awayVal;
+
+      if (homeSanitized !== awaySanitized) {
+        delete updated.winnerId;
+      }
 
       return {
         ...prev,
         [predKey]: updated
       };
+    });
+  };
+
+  const handleP1KoBlur = (predKey: string, side: 'home' | 'away') => {
+    setP1KoPreds(prev => {
+      const current = prev[predKey];
+      if (current && current[side === 'home' ? 'homeScore' : 'awayScore'] === '') {
+        return {
+          ...prev,
+          [predKey]: {
+            ...current,
+            [side === 'home' ? 'homeScore' : 'awayScore']: 0
+          }
+        };
+      }
+      return prev;
     });
   };
 
@@ -259,19 +321,19 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     if (p1Locked) return;
     
     // Validar podio
-    const finalWinner = p1KoPreds['P1_SF_M104']?.homeScore > p1KoPreds['P1_SF_M104']?.awayScore 
+    const finalWinner = sanitizedKoPreds['P1_SF_M104']?.homeScore > sanitizedKoPreds['P1_SF_M104']?.awayScore 
       ? finalMatch.homeTeam.id 
-      : p1KoPreds['P1_SF_M104']?.homeScore < p1KoPreds['P1_SF_M104']?.awayScore 
+      : sanitizedKoPreds['P1_SF_M104']?.homeScore < sanitizedKoPreds['P1_SF_M104']?.awayScore 
         ? finalMatch.awayTeam.id 
-        : p1KoPreds['P1_SF_M104']?.winnerId;
+        : sanitizedKoPreds['P1_SF_M104']?.winnerId;
 
     const finalLoser = finalWinner === finalMatch.homeTeam.id ? finalMatch.awayTeam.id : finalMatch.homeTeam.id;
 
-    const thirdWinner = p1KoPreds['P1_SF_M103']?.homeScore > p1KoPreds['P1_SF_M103']?.awayScore 
+    const thirdWinner = sanitizedKoPreds['P1_SF_M103']?.homeScore > sanitizedKoPreds['P1_SF_M103']?.awayScore 
       ? thirdPlace.homeTeam.id 
-      : p1KoPreds['P1_SF_M103']?.homeScore < p1KoPreds['P1_SF_M103']?.awayScore 
+      : sanitizedKoPreds['P1_SF_M103']?.homeScore < sanitizedKoPreds['P1_SF_M103']?.awayScore 
         ? thirdPlace.awayTeam.id 
-        : p1KoPreds['P1_SF_M103']?.winnerId;
+        : sanitizedKoPreds['P1_SF_M103']?.winnerId;
 
     if (!finalWinner || !thirdWinner) {
       alert('Por favor completa las predicciones de la final y tercer puesto, indicando quién avanza en caso de empate.');
@@ -290,7 +352,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       const formattedPredictions: any[] = [];
       
       // 1. Grupos
-      Object.entries(p1GroupPreds).forEach(([matchId, pred]) => {
+      Object.entries(sanitizedGroupPreds).forEach(([matchId, pred]) => {
         formattedPredictions.push({
           prediction_key: `G_${matchId}`,
           predicted_home_score: pred.homeScore ?? 0,
@@ -303,7 +365,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 2. R32
       r32Matches.forEach(m => {
-        const pred = p1KoPreds[`P1_R32_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_R32_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_R32_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -317,7 +379,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 3. R16
       r16.forEach(m => {
-        const pred = p1KoPreds[`P1_R16_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_R16_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_R16_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -331,7 +393,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 4. QF
       qf.forEach(m => {
-        const pred = p1KoPreds[`P1_QF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_QF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_QF_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -345,7 +407,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 5. SF
       sf.forEach(m => {
-        const pred = p1KoPreds[`P1_SF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_SF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_SF_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -358,7 +420,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       });
 
       // 6. 3rd
-      const tPred = p1KoPreds[`P1_SF_M103`] || { homeScore: 0, awayScore: 0 };
+      const tPred = sanitizedKoPreds[`P1_SF_M103`] || { homeScore: 0, awayScore: 0 };
       formattedPredictions.push({
         prediction_key: `P1_SF_M103`,
         predicted_home_score: tPred.homeScore,
@@ -370,7 +432,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       });
 
       // 7. Final
-      const fPred = p1KoPreds[`P1_SF_M104`] || { homeScore: 0, awayScore: 0 };
+      const fPred = sanitizedKoPreds[`P1_SF_M104`] || { homeScore: 0, awayScore: 0 };
       formattedPredictions.push({
         prediction_key: `P1_SF_M104`,
         predicted_home_score: fPred.homeScore,
@@ -396,19 +458,19 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
   const handleSaveDraftPart1 = async () => {
     if (p1Locked) return;
 
-    const finalWinner = p1KoPreds['P1_SF_M104']?.homeScore > p1KoPreds['P1_SF_M104']?.awayScore 
+    const finalWinner = sanitizedKoPreds['P1_SF_M104']?.homeScore > sanitizedKoPreds['P1_SF_M104']?.awayScore 
       ? finalMatch.homeTeam.id 
-      : p1KoPreds['P1_SF_M104']?.homeScore < p1KoPreds['P1_SF_M104']?.awayScore 
+      : sanitizedKoPreds['P1_SF_M104']?.homeScore < sanitizedKoPreds['P1_SF_M104']?.awayScore 
         ? finalMatch.awayTeam.id 
-        : p1KoPreds['P1_SF_M104']?.winnerId || '';
+        : sanitizedKoPreds['P1_SF_M104']?.winnerId || '';
 
     const finalLoser = finalWinner ? (finalWinner === finalMatch.homeTeam.id ? finalMatch.awayTeam.id : finalMatch.homeTeam.id) : '';
 
-    const thirdWinner = p1KoPreds['P1_SF_M103']?.homeScore > p1KoPreds['P1_SF_M103']?.awayScore 
+    const thirdWinner = sanitizedKoPreds['P1_SF_M103']?.homeScore > sanitizedKoPreds['P1_SF_M103']?.awayScore 
       ? thirdPlace.homeTeam.id 
-      : p1KoPreds['P1_SF_M103']?.homeScore < p1KoPreds['P1_SF_M103']?.awayScore 
+      : sanitizedKoPreds['P1_SF_M103']?.homeScore < sanitizedKoPreds['P1_SF_M103']?.awayScore 
         ? thirdPlace.awayTeam.id 
-        : p1KoPreds['P1_SF_M103']?.winnerId || '';
+        : sanitizedKoPreds['P1_SF_M103']?.winnerId || '';
 
     const champion = {
       champion_team_id: finalWinner,
@@ -421,7 +483,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       const formattedPredictions: any[] = [];
       
       // 1. Grupos
-      Object.entries(p1GroupPreds).forEach(([matchId, pred]) => {
+      Object.entries(sanitizedGroupPreds).forEach(([matchId, pred]) => {
         formattedPredictions.push({
           prediction_key: `G_${matchId}`,
           predicted_home_score: pred.homeScore ?? 0,
@@ -434,7 +496,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 2. R32
       r32Matches.forEach(m => {
-        const pred = p1KoPreds[`P1_R32_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_R32_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_R32_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -448,7 +510,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 3. R16
       r16.forEach(m => {
-        const pred = p1KoPreds[`P1_R16_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_R16_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_R16_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -462,7 +524,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 4. QF
       qf.forEach(m => {
-        const pred = p1KoPreds[`P1_QF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_QF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_QF_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -476,7 +538,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // 5. SF
       sf.forEach(m => {
-        const pred = p1KoPreds[`P1_SF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
+        const pred = sanitizedKoPreds[`P1_SF_M${m.id}`] || { homeScore: 0, awayScore: 0 };
         formattedPredictions.push({
           prediction_key: `P1_SF_M${m.id}`,
           predicted_home_score: pred.homeScore,
@@ -489,7 +551,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       });
 
       // 6. 3rd
-      const tPred = p1KoPreds[`P1_SF_M103`] || { homeScore: 0, awayScore: 0 };
+      const tPred = sanitizedKoPreds[`P1_SF_M103`] || { homeScore: 0, awayScore: 0 };
       formattedPredictions.push({
         prediction_key: `P1_SF_M103`,
         predicted_home_score: tPred.homeScore,
@@ -501,7 +563,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       });
 
       // 7. Final
-      const fPred = p1KoPreds[`P1_SF_M104`] || { homeScore: 0, awayScore: 0 };
+      const fPred = sanitizedKoPreds[`P1_SF_M104`] || { homeScore: 0, awayScore: 0 };
       formattedPredictions.push({
         prediction_key: `P1_SF_M104`,
         predicted_home_score: fPred.homeScore,
@@ -525,7 +587,8 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
   // Handlers para Parte 2 (En vivo)
   const handleP2ScoreChange = (matchId: number, side: 'home' | 'away', val: string) => {
-    const num = val === '' ? 0 : Math.max(0, parseInt(val, 10));
+    const num = val === '' ? '' : Math.max(0, parseInt(val, 10));
+    if (num !== '' && isNaN(num)) return;
     setP2Preds(prev => ({
       ...prev,
       [matchId]: {
@@ -533,6 +596,22 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
         [side === 'home' ? 'homeScore' : 'awayScore']: num
       }
     }));
+  };
+
+  const handleP2Blur = (matchId: number, side: 'home' | 'away') => {
+    setP2Preds(prev => {
+      const current = prev[matchId];
+      if (current && current[side === 'home' ? 'homeScore' : 'awayScore'] === '') {
+        return {
+          ...prev,
+          [matchId]: {
+            ...current,
+            [side === 'home' ? 'homeScore' : 'awayScore']: 0
+          }
+        };
+      }
+      return prev;
+    });
   };
 
   const handleP2Save = async (matchId: number) => {
@@ -547,14 +626,16 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     }
 
     const pred = p2Preds[matchId] || { homeScore: 0, awayScore: 0 };
+    const homeSanitized = pred.homeScore === '' ? 0 : pred.homeScore;
+    const awaySanitized = pred.awayScore === '' ? 0 : pred.awayScore;
 
     setSubmittingMatchId(matchId);
     try {
       let winner: string | null = null;
       if (match.phase !== 'group') {
-        if (pred.homeScore > pred.awayScore) {
+        if (homeSanitized > awaySanitized) {
           winner = match.home_team_id;
-        } else if (pred.awayScore > pred.homeScore) {
+        } else if (awaySanitized > homeSanitized) {
           winner = match.away_team_id;
         } else {
           // En caso de empate en knockout real, por defecto asignar home_team, el usuario puede ajustarlo
@@ -562,7 +643,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
         }
       }
 
-      await saveP2Prediction(userId, selectedPoolId, matchId, pred.homeScore, pred.awayScore, winner);
+      await saveP2Prediction(userId, selectedPoolId, matchId, homeSanitized, awaySanitized, winner);
       alert('Predicción guardada.');
     } catch (err: any) {
       console.error(err);
@@ -752,8 +833,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                             <input
                               type="number"
                               min={0}
-                              value={pred.homeScore}
+                              value={pred.homeScore ?? 0}
                               onChange={(e) => handleP1GroupScoreChange(match.id, 'home', e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={() => handleP1GroupBlur(match.id, 'home')}
                               disabled={p1Locked}
                               className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
@@ -761,8 +844,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                             <input
                               type="number"
                               min={0}
-                              value={pred.awayScore}
+                              value={pred.awayScore ?? 0}
                               onChange={(e) => handleP1GroupScoreChange(match.id, 'away', e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={() => handleP1GroupBlur(match.id, 'away')}
                               disabled={p1Locked}
                               className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
@@ -885,8 +970,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           <input
                             type="number"
                             min={0}
-                            value={pred.homeScore}
+                            value={pred.homeScore ?? 0}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => handleP1KoBlur(predKey, 'home')}
                             disabled={p1Locked}
                             className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
@@ -894,8 +981,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           <input
                             type="number"
                             min={0}
-                            value={pred.awayScore}
+                            value={pred.awayScore ?? 0}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => handleP1KoBlur(predKey, 'away')}
                             disabled={p1Locked}
                             className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
@@ -974,8 +1063,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           <input
                             type="number"
                             min={0}
-                            value={pred.homeScore}
+                            value={pred.homeScore ?? 0}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => handleP1KoBlur(predKey, 'home')}
                             disabled={p1Locked}
                             className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
@@ -983,8 +1074,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           <input
                             type="number"
                             min={0}
-                            value={pred.awayScore}
+                            value={pred.awayScore ?? 0}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => handleP1KoBlur(predKey, 'away')}
                             disabled={p1Locked}
                             className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
@@ -1062,8 +1155,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           <input
                             type="number"
                             min={0}
-                            value={pred.homeScore}
+                            value={pred.homeScore ?? 0}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => handleP1KoBlur(predKey, 'home')}
                             disabled={p1Locked}
                             className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
@@ -1071,8 +1166,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           <input
                             type="number"
                             min={0}
-                            value={pred.awayScore}
+                            value={pred.awayScore ?? 0}
                             onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => handleP1KoBlur(predKey, 'away')}
                             disabled={p1Locked}
                             className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                           />
@@ -1152,8 +1249,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                             <input
                               type="number"
                               min={0}
-                              value={pred.homeScore}
+                              value={pred.homeScore ?? 0}
                               onChange={(e) => handleP1KoScoreChange(predKey, 'home', e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={() => handleP1KoBlur(predKey, 'home')}
                               disabled={p1Locked}
                               className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
@@ -1161,8 +1260,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                             <input
                               type="number"
                               min={0}
-                              value={pred.awayScore}
+                              value={pred.awayScore ?? 0}
                               onChange={(e) => handleP1KoScoreChange(predKey, 'away', e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={() => handleP1KoBlur(predKey, 'away')}
                               disabled={p1Locked}
                               className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                             />
@@ -1235,6 +1336,8 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           min={0}
                           value={p1KoPreds['P1_SF_M103']?.homeScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M103', 'home', e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onBlur={() => handleP1KoBlur('P1_SF_M103', 'home')}
                           disabled={p1Locked}
                           className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
@@ -1244,6 +1347,8 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           min={0}
                           value={p1KoPreds['P1_SF_M103']?.awayScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M103', 'away', e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onBlur={() => handleP1KoBlur('P1_SF_M103', 'away')}
                           disabled={p1Locked}
                           className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
@@ -1311,6 +1416,8 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           min={0}
                           value={p1KoPreds['P1_SF_M104']?.homeScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M104', 'home', e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onBlur={() => handleP1KoBlur('P1_SF_M104', 'home')}
                           disabled={p1Locked}
                           className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
@@ -1320,6 +1427,8 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                           min={0}
                           value={p1KoPreds['P1_SF_M104']?.awayScore ?? 0}
                           onChange={(e) => handleP1KoScoreChange('P1_SF_M104', 'away', e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onBlur={() => handleP1KoBlur('P1_SF_M104', 'away')}
                           disabled={p1Locked}
                           className="w-12 h-12 sm:w-10 sm:h-10 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-sm text-white focus:outline-none focus:border-emerald-500/50"
                         />
@@ -1382,13 +1491,13 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
               {/* Computar Podio actual en base a los inputs del paso 6 */}
               {(() => {
-                const finalHomeScore = p1KoPreds['P1_SF_M104']?.homeScore ?? 0;
-                const finalAwayScore = p1KoPreds['P1_SF_M104']?.awayScore ?? 0;
+                const finalHomeScore = sanitizedKoPreds['P1_SF_M104']?.homeScore ?? 0;
+                const finalAwayScore = sanitizedKoPreds['P1_SF_M104']?.awayScore ?? 0;
                 const finalWinner = finalHomeScore > finalAwayScore 
                   ? finalMatch.homeTeam 
                   : finalAwayScore > finalHomeScore 
                     ? finalMatch.awayTeam 
-                    : teams.find(t => t.id === p1KoPreds['P1_SF_M104']?.winnerId) || null;
+                    : teams.find(t => t.id === sanitizedKoPreds['P1_SF_M104']?.winnerId) || null;
 
                 const finalLoser = finalWinner?.id === finalMatch.homeTeam.id 
                   ? finalMatch.awayTeam 
@@ -1396,13 +1505,13 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                     ? finalMatch.homeTeam 
                     : null;
 
-                const thirdHomeScore = p1KoPreds['P1_SF_M103']?.homeScore ?? 0;
-                const thirdAwayScore = p1KoPreds['P1_SF_M103']?.awayScore ?? 0;
+                const thirdHomeScore = sanitizedKoPreds['P1_SF_M103']?.homeScore ?? 0;
+                const thirdAwayScore = sanitizedKoPreds['P1_SF_M103']?.awayScore ?? 0;
                 const thirdWinner = thirdHomeScore > thirdAwayScore 
                   ? thirdPlace.homeTeam 
                   : thirdAwayScore > thirdHomeScore 
                     ? thirdPlace.awayTeam 
-                    : teams.find(t => t.id === p1KoPreds['P1_SF_M103']?.winnerId) || null;
+                    : teams.find(t => t.id === sanitizedKoPreds['P1_SF_M103']?.winnerId) || null;
 
                 return (
                   <div className="space-y-4 text-left">
@@ -1600,8 +1709,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                   <input
                                     type="number"
                                     min={0}
-                                    value={pred.homeScore}
+                                    value={pred.homeScore ?? 0}
                                     onChange={(e) => handleP2ScoreChange(match.id, 'home', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onBlur={() => handleP2Blur(match.id, 'home')}
                                     disabled={isLocked || !match.home_team_id || !match.away_team_id}
                                     className="w-11 h-11 sm:w-9 sm:h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
                                   />
@@ -1609,8 +1720,10 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                   <input
                                     type="number"
                                     min={0}
-                                    value={pred.awayScore}
+                                    value={pred.awayScore ?? 0}
                                     onChange={(e) => handleP2ScoreChange(match.id, 'away', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onBlur={() => handleP2Blur(match.id, 'away')}
                                     disabled={isLocked || !match.home_team_id || !match.away_team_id}
                                     className="w-11 h-11 sm:w-9 sm:h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-base sm:text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
                                   />

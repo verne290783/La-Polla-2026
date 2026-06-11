@@ -54,3 +54,32 @@ Integrity mode: development
 - [ ] All wizard steps (Grupos, R32, Octavos, Cuartos, Semis, Final) and Part 2 (Live/En Vivo) reflect the new responsive layout.
 - [ ] The application compiles cleanly with `npm run build` and no linter warnings are generated.
 
+## Follow-up — 2026-06-11T15:20:39Z
+
+Improve the usability of the score input fields in the prediction wizard (`FixtureTab.tsx`) so that clicking or tapping an input automatically selects all text, and deleting the number allows the input to be temporarily empty (defaulting to 0 on blur).
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Auto-Select Input Text on Focus
+- Add an `onFocus` event handler to all score input fields (for both Part 1 and Part 2 prediction fields in `FixtureTab.tsx`) that automatically selects the entire content of the input (using `e.target.select()`).
+- This should make it so tapping or clicking the input immediately highlights the existing number, allowing it to be overwritten immediately upon typing.
+
+### R2. Allow Temporary Empty State and Default to 0 on Blur
+- Modify the change handlers (`onChange`) so that if the user deletes the value (leaving it empty), the state stores an empty string `""` or `null` instead of forcing a `0` immediately. This allows users to clear the field with backspace.
+- Add an `onBlur` event handler to all score input fields that resets the value to `0` in the state if the input is left blank when focus is lost.
+- Ensure that any bracket calculation or saving function treats empty values as `0` rather than causing errors or storing invalid data.
+
+## Acceptance Criteria
+
+### UI & UX
+- [ ] Focusing/tapping any score input field (Group stage, knockouts, or Part 2) automatically highlights the entire number.
+- [ ] Clearing a score input field with backspace leaves the input field empty (blank) while focused, rather than immediately reverting to `0`.
+- [ ] Tapping outside or blurring the empty input field automatically resets its value to `0` in the state and UI.
+
+### Technical
+- [ ] Next.js compiles cleanly with `npm run build` and no typescript/linter errors are introduced.
+- [ ] The E2E tests compile and pass.
+
