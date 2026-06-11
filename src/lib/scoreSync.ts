@@ -6,6 +6,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const mapApiTlaToDbTla = (tla: string | null | undefined): string | null => {
+  if (!tla) return null;
+  if (tla === 'URY') return 'URU';
+  return tla;
+};
+
 export async function syncRealScores() {
   const apiKey = process.env.FOOTBALL_API_KEY;
   if (!apiKey) {
@@ -33,79 +39,82 @@ export async function syncRealScores() {
   const errors: string[] = [];
 
   for (const apiMatch of apiMatches) {
-    const homeTla = apiMatch.homeTeam?.tla;
-    const awayTla = apiMatch.awayTeam?.tla;
-    const status = apiMatch.status; // SCHEDULED, LIVE, IN_PLAY, PAUSED, FINISHED
+    const homeTla = mapApiTlaToDbTla(apiMatch.homeTeam?.tla);
+    const awayTla = mapApiTlaToDbTla(apiMatch.awayTeam?.tla);
+    const status = apiMatch.status; // TIMED, SCHEDULED, LIVE, IN_PLAY, PAUSED, FINISHED
     const score = apiMatch.score;
 
-    if (!homeTla || !awayTla) continue;
-
-    // Solo nos interesan partidos que están en juego o finalizados para actualizar el marcador
-    const isLive = status === 'LIVE' || status === 'IN_PLAY' || status === 'PAUSED';
-    const isFinished = status === 'FINISHED';
-
-    if (!isLive && !isFinished) continue;
-
-    const homeScore = score?.fullTime?.home;
-    const awayScore = score?.fullTime?.away;
-
-    if (homeScore === null || homeScore === undefined || awayScore === null || awayScore === undefined) {
-      continue;
-    }
-
     try {
-      // 1. Intentar buscar por equipos TLA en la fase de grupos o eliminatorias
-      // En la fase de grupos cada pareja juega solo una vez, por lo que es único.
-      // En eliminatorias también podemos buscar por equipos si ya están cargados.
+      // Buscar partido por external_match_id en nuestra BD
       const { data: dbMatches, error: fetchError } = await supabase
         .from('matches')
         .select('*')
-        .eq('home_team_id', homeTla)
-        .eq('away_team_id', awayTla);
+        .eq('external_match_id', apiMatch.id.toString());
 
       if (fetchError) throw fetchError;
 
       if (dbMatches && dbMatches.length > 0) {
-        // Encontrar el partido más idóneo (normalmente solo hay 1)
         const dbMatch = dbMatches[0];
 
-        // Mapeo de estado
-        const newStatus = isFinished ? 'finished' : 'live';
+        // Determinar si hay cambios en los equipos
+        const teamChanged = dbMatch.home_team_id !== homeTla || dbMatch.away_team_id !== awayTla;
 
-        // Calcular ganador si es knockout
-        let winnerId: string | null = null;
-        if (dbMatch.phase !== 'group') {
-          if (homeScore > awayScore) {
-            winnerId = homeTla;
-          } else if (awayScore > homeScore) {
-            winnerId = awayTla;
-          } else {
-            // Empate en penales/prórroga
-            if (score.winner === 'HOME_TEAM') {
+        // Determinar si hay cambios en el marcador/estado
+        const isLive = status === 'LIVE' || status === 'IN_PLAY' || status === 'PAUSED';
+        const isFinished = status === 'FINISHED';
+        const newStatus = isFinished ? 'finished' : isLive ? 'live' : 'scheduled';
+        const statusChanged = dbMatch.status !== newStatus;
+
+        const homeScore = score?.fullTime?.home;
+        const awayScore = score?.fullTime?.away;
+        const scoreChanged = dbMatch.home_score !== homeScore || dbMatch.away_score !== awayScore;
+
+        // Si hay algún cambio, actualizar
+        if (teamChanged || statusChanged || scoreChanged) {
+          // Calcular ganador si es knockout y finalizó
+          let winnerId: string | null = null;
+          if (dbMatch.phase !== 'group' && isFinished && homeScore !== null && awayScore !== null) {
+            if (homeScore > awayScore) {
               winnerId = homeTla;
-            } else if (score.winner === 'AWAY_TEAM') {
+            } else if (awayScore > homeScore) {
               winnerId = awayTla;
+            } else {
+              // Empate en penales/prórroga
+              if (score.winner === 'HOME_TEAM') {
+                winnerId = homeTla;
+              } else if (score.winner === 'AWAY_TEAM') {
+                winnerId = awayTla;
+              }
             }
           }
-        }
 
-        // Actualizar base de datos
-        const { error: updateError } = await supabase
-          .from('matches')
-          .update({
-            home_score: homeScore,
-            away_score: awayScore,
+          const updatePayload: any = {
+            home_team_id: homeTla,
+            away_team_id: awayTla,
             status: newStatus,
             winner_team_id: winnerId
-          })
-          .eq('id', dbMatch.id);
+          };
 
-        if (updateError) throw updateError;
-        updatedCount++;
+          if (homeScore !== null && homeScore !== undefined) {
+            updatePayload.home_score = homeScore;
+          }
+          if (awayScore !== null && awayScore !== undefined) {
+            updatePayload.away_score = awayScore;
+          }
+
+          console.log('Update Payload for match', dbMatch.id, ':', JSON.stringify(updatePayload));
+          const { error: updateError } = await supabase
+            .from('matches')
+            .update(updatePayload)
+            .eq('id', dbMatch.id);
+
+          if (updateError) throw updateError;
+          updatedCount++;
+        }
       }
     } catch (err: any) {
-      console.error(`Error sincronizando partido ${homeTla} vs ${awayTla}:`, err.message);
-      errors.push(`${homeTla} vs ${awayTla}: ${err.message}`);
+      console.error(`Error sincronizando partido API ID ${apiMatch.id}:`, err.message);
+      errors.push(`API ID ${apiMatch.id}: ${err.message}`);
     }
   }
 

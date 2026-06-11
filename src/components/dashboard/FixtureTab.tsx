@@ -1525,15 +1525,14 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                   </span>
                                 </div>
                               </div>
-
                               {/* Marcador Real (si está finalizado o en vivo) */}
                               {(isFinished || isLive) && (
                                 <div className="mb-4 p-3 bg-neutral-900/50 border border-neutral-900 rounded-xl text-center">
                                   <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Marcador Real</p>
                                   <div className="flex justify-center items-center gap-3">
-                                    <span className="text-xs font-black text-white">{match.home_team_id}</span>
+                                    <span className="text-xs font-black text-white">{match.home_team_id || 'Por definir'}</span>
                                     <span className="text-lg font-black text-emerald-400">{match.home_score} - {match.away_score}</span>
-                                    <span className="text-xs font-black text-white">{match.away_team_id}</span>
+                                    <span className="text-xs font-black text-white">{match.away_team_id || 'Por definir'}</span>
                                   </div>
                                 </div>
                               )}
@@ -1542,7 +1541,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                               <div className="grid grid-cols-7 items-center gap-2">
                                 {/* Home */}
                                 <div className="col-span-2 text-right font-bold text-xs truncate">
-                                  {match.home_team_id}
+                                  {match.home_team_id || 'Por definir'}
                                 </div>
                                 <span className="text-2xl text-center flex items-center justify-center">
                                   <TeamFlag teamId={match.home_team_id} fallbackEmoji={teamsFlags[match.home_team_id] || '🏳️'} />
@@ -1555,7 +1554,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                     min={0}
                                     value={pred.homeScore}
                                     onChange={(e) => handleP2ScoreChange(match.id, 'home', e.target.value)}
-                                    disabled={isLocked}
+                                    disabled={isLocked || !match.home_team_id || !match.away_team_id}
                                     className="w-9 h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
                                   />
                                   <span className="text-neutral-500 text-xs">-</span>
@@ -1564,7 +1563,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                     min={0}
                                     value={pred.awayScore}
                                     onChange={(e) => handleP2ScoreChange(match.id, 'away', e.target.value)}
-                                    disabled={isLocked}
+                                    disabled={isLocked || !match.home_team_id || !match.away_team_id}
                                     className="w-9 h-9 bg-neutral-900 border border-neutral-800 rounded-lg text-center font-black text-xs text-white focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
                                   />
                                 </div>
@@ -1574,26 +1573,36 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                 </span>
                                 {/* Away */}
                                 <div className="col-span-2 text-left font-bold text-xs truncate">
-                                  {match.away_team_id}
+                                  {match.away_team_id || 'Por definir'}
                                 </div>
                               </div>
 
                               {/* Footer Card */}
                               <div className="flex justify-between items-center border-t border-neutral-900/60 pt-3.5 mt-4 text-[10px] text-neutral-500">
-                                <span>
+                                <span className="truncate max-w-[180px] sm:max-w-none">
                                   Kickoff: {mDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'America/Bogota' })} — {mDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' })}
                                 </span>
                                 
-                                {!isLocked ? (
+                                {(isFinished || isLive) && (
+                                  <span className="px-2 py-1 rounded-md bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 font-extrabold text-[10.5px] shadow-sm animate-fadeIn">
+                                    Real: {match.home_score} - {match.away_score}
+                                  </span>
+                                )}
+
+                                {!isLocked && match.home_team_id && match.away_team_id ? (
                                   <button
                                     onClick={() => handleP2Save(match.id)}
                                     disabled={submittingMatchId === match.id}
-                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition"
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shrink-0"
                                   >
                                     {submittingMatchId === match.id ? '...' : 'Guardar'}
                                   </button>
+                                ) : !match.home_team_id || !match.away_team_id ? (
+                                  <span className="text-[10px] text-neutral-500 italic shrink-0">
+                                    Por definir
+                                  </span>
                                 ) : (
-                                  <span className="italic">
+                                  <span className="italic shrink-0 text-neutral-500">
                                     🔒 Bloqueado
                                   </span>
                                 )}
