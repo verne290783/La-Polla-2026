@@ -87,23 +87,115 @@ const teamsSeed: TeamSeed[] = [
   { id: 'PAN', name: 'Panamá', flag_emoji: '🇵🇦', fifa_ranking: 45, confederation: 'CONCACAF', group: 'L' },
 ];
 
-const venues = [
-  { city: 'Ciudad de México', venue: 'Estadio Azteca' },
-  { city: 'Guadalajara', venue: 'Estadio Akron' },
-  { city: 'Monterrey', venue: 'Estadio BBVA' },
-  { city: 'Vancouver', venue: 'BC Place' },
-  { city: 'Toronto', venue: 'BMO Field' },
-  { city: 'New York/NJ', venue: 'MetLife Stadium' },
-  { city: 'Dallas', venue: 'AT&T Stadium' },
-  { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
-  { city: 'Los Angeles', venue: 'SoFi Stadium' },
-  { city: 'Miami', venue: 'Hard Rock Stadium' },
-  { city: 'Seattle', venue: 'Lumen Field' },
-  { city: 'San Francisco', venue: 'Levi\'s Stadium' },
-  { city: 'Houston', venue: 'NRG Stadium' },
-  { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
-  { city: 'Kansas City', venue: 'Arrowhead Stadium' },
-  { city: 'Boston', venue: 'Gillette Stadium' },
+const groupVenues: { city: string; venue: string }[][] = [
+  // Grupo A (gIdx = 0)
+  [
+    { city: 'Ciudad de México', venue: 'Estadio Azteca' },
+    { city: 'Guadalajara', venue: 'Estadio Akron' },
+    { city: 'Guadalajara', venue: 'Estadio Akron' },
+    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'Ciudad de México', venue: 'Estadio Azteca' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
+  ],
+  // Grupo B (gIdx = 1)
+  [
+    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
+    { city: 'San Francisco', venue: "Levi's Stadium" },
+    { city: 'Seattle', venue: 'Lumen Field' },
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'Toronto', venue: 'BMO Field' }
+  ],
+  // Grupo C (gIdx = 2)
+  [
+    { city: 'New York/NJ', venue: 'MetLife Stadium' },
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
+    { city: 'Monterrey', venue: 'Estadio BBVA' },
+    { city: 'Houston', venue: 'NRG Stadium' },
+    { city: 'Dallas', venue: 'AT&T Stadium' }
+  ],
+  // Grupo D (gIdx = 3)
+  [
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'New York/NJ', venue: 'MetLife Stadium' },
+    { city: 'San Francisco', venue: "Levi's Stadium" },
+    { city: 'Seattle', venue: 'Lumen Field' }
+  ],
+  // Grupo E (gIdx = 4)
+  [
+    { city: 'Houston', venue: 'NRG Stadium' },
+    { city: 'Monterrey', venue: 'Estadio BBVA' },
+    { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
+    { city: 'New York/NJ', venue: 'MetLife Stadium' },
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
+  ],
+  // Grupo F (gIdx = 5)
+  [
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'Monterrey', venue: 'Estadio BBVA' },
+    { city: 'Miami', venue: 'Hard Rock Stadium' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
+    { city: 'Seattle', venue: 'Lumen Field' }
+  ],
+  // Grupo G (gIdx = 6)
+  [
+    { city: 'Seattle', venue: 'Lumen Field' },
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
+    { city: 'San Francisco', venue: "Levi's Stadium" },
+    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'New York/NJ', venue: 'MetLife Stadium' }
+  ],
+  // Grupo H (gIdx = 7)
+  [
+    { city: 'Miami', venue: 'Hard Rock Stadium' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
+    { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
+    { city: 'Houston', venue: 'NRG Stadium' },
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'Kansas City', venue: 'Arrowhead Stadium' }
+  ],
+  // Grupo I (gIdx = 8)
+  [
+    { city: 'New York/NJ', venue: 'MetLife Stadium' },
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'Kansas City', venue: 'Arrowhead Stadium' },
+    { city: 'San Francisco', venue: "Levi's Stadium" },
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
+  ],
+  // Grupo J (gIdx = 9)
+  [
+    { city: 'San Francisco', venue: "Levi's Stadium" },
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
+    { city: 'Seattle', venue: 'Lumen Field' },
+    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'New York/NJ', venue: 'MetLife Stadium' }
+  ],
+  // Grupo K (gIdx = 10)
+  [
+    { city: 'Houston', venue: 'NRG Stadium' },
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'Toronto', venue: 'BMO Field' },
+    { city: 'Kansas City', venue: 'Arrowhead Stadium' },
+    { city: 'Miami', venue: 'Hard Rock Stadium' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
+  ],
+  // Grupo L (gIdx = 11)
+  [
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'Toronto', venue: 'BMO Field' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
+    { city: 'New York/NJ', venue: 'MetLife Stadium' }
+  ]
 ];
 
 async function seed() {
@@ -178,7 +270,7 @@ async function seed() {
 
       // Calcular fecha y hora ficticia realista del partido en UTC
       let matchDate: Date;
-      let venueObj = venues[matchId % venues.length];
+      let venueObj = groupVenues[gIdx][mIdx];
 
       if (matchup.round === 1) {
         // Ronda 1: Match 1 is June 11 at 19:00 UTC (2:00 PM Bogota); Match 2 is June 12 at 02:00 UTC (9:00 PM Bogota)
