@@ -1,6 +1,6 @@
 export type TournamentState = 'pre_tournament' | 'group_stage' | 'knockouts' | 'finished';
 
-export const LOCK_PART1_DATE = new Date('2026-06-11T19:00:00Z'); // 2:00 PM Bogota / 19:00 UTC / 3:00 PM ET del 11 de Junio de 2026
+export const LOCK_PART1_DATE = new Date('2026-06-11T20:00:00Z'); // 3:00 PM Bogota / 20:00 UTC / 4:00 PM ET del 11 de Junio de 2026
 
 // Fecha de finalización de la fase de grupos (Final del último partido de grupos)
 export const END_GROUPS_DATE = new Date('2026-06-27T23:59:59Z');

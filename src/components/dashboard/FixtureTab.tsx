@@ -768,7 +768,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                   🔓 PREDICCIÓN ABIERTA
                 </span>
               )}
-              <span className="text-[10px] text-neutral-500 mt-1.5">Límite: 11 de Junio, 2:00 PM (Hora de Bogotá)</span>
+              <span className="text-[10px] text-neutral-500 mt-1.5">Límite: 11 de Junio, 3:00 PM (Hora de Bogotá)</span>
             </div>
           </div>
 
