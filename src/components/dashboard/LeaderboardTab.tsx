@@ -6,6 +6,7 @@ import {
   getUserPools, 
   getPoolMembersRanking,
   getChampionPrediction,
+  getP1Predictions,
   getP2Predictions,
   getTeams,
   getMatches
@@ -28,6 +29,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
   const [modalP1Prediction, setModalP1Prediction] = useState<any | null>(null);
+  const [modalP1Predictions, setModalP1Predictions] = useState<any[]>([]);
   const [modalP2Predictions, setModalP2Predictions] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
@@ -84,6 +86,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
       if (!poolId) {
         setUserHasNoPools(true);
         setModalP1Prediction(null);
+        setModalP1Predictions([]);
         setModalP2Predictions([]);
         
         // Still load teams and matches lazily if not already loaded
@@ -97,14 +100,40 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
       }
 
       // Fetch predictions for the target user in the resolved poolId
-      const [p1Pred, p2Preds, loadedTeams, loadedMatches] = await Promise.all([
+      const [p1Pred, p1MatchesPreds, p2Preds, loadedTeams, loadedMatches] = await Promise.all([
         getChampionPrediction(targetUser.id, poolId),
+        getP1Predictions(targetUser.id, poolId),
         getP2Predictions(targetUser.id, poolId),
         teams.length === 0 ? getTeams() : Promise.resolve(teams),
         matches.length === 0 ? getMatches() : Promise.resolve(matches)
       ]);
 
+      const phaseOrder: Record<string, number> = {
+        group: 1,
+        r32: 2,
+        r16: 3,
+        qf: 4,
+        sf: 5,
+        '3rd': 6,
+        final: 7
+      };
+      
+      const sortedP1Preds = (p1MatchesPreds || []).sort((a: any, b: any) => {
+        const orderA = phaseOrder[a.phase] || 99;
+        const orderB = phaseOrder[b.phase] || 99;
+        if (orderA !== orderB) return orderA - orderB;
+        
+        if (a.phase === 'group' && b.phase === 'group') {
+          const idA = parseInt(a.prediction_key.replace('G_', ''), 10) || 0;
+          const idB = parseInt(b.prediction_key.replace('G_', ''), 10) || 0;
+          return idA - idB;
+        }
+        
+        return a.prediction_key.localeCompare(b.prediction_key);
+      });
+
       setModalP1Prediction(p1Pred);
+      setModalP1Predictions(sortedP1Preds);
       setModalP2Predictions(p2Preds || []);
       if (teams.length === 0) setTeams(loadedTeams);
       if (matches.length === 0) setMatches(loadedMatches);
@@ -449,6 +478,79 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                           </div>
                         )}
                       </div>
+
+                      {/* Section 1.5: Partidos Pronosticados (Parte 1) */}
+                      {new Date().getTime() >= LOCK_PART1_DATE.getTime() && modalP1Predictions.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                          <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                            ⚽ Partidos Pronosticados (Parte 1)
+                          </h4>
+                          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                            {modalP1Predictions.map(pred => {
+                              const isGroup = pred.phase === 'group';
+                              const matchIdStr = isGroup ? pred.prediction_key.replace('G_', '') : '';
+                              const matchId = isGroup ? parseInt(matchIdStr, 10) : null;
+
+                              const homeTeamId = pred.predicted_home_team_id;
+                              const awayTeamId = pred.predicted_away_team_id;
+                              const homeTeamObj = teams.find(t => t.id === homeTeamId);
+                              const awayTeamObj = teams.find(t => t.id === awayTeamId);
+
+                              const phaseLabels: Record<string, string> = {
+                                group: 'Grupo',
+                                r32: 'Dieciseisavos',
+                                r16: 'Octavos',
+                                qf: 'Cuartos',
+                                sf: 'Semifinal',
+                                '3rd': '3er Puesto',
+                                final: 'Final'
+                              };
+                              const phaseLabel = phaseLabels[pred.phase] || pred.phase;
+
+                              return (
+                                <div key={pred.prediction_key} className="p-3 bg-neutral-950/40 border border-neutral-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                  {/* Match & Teams */}
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <span className="text-neutral-500 font-mono text-[9px] w-20 shrink-0 uppercase tracking-wider">{phaseLabel} {isGroup && matchId ? `#${matchId}` : ''}</span>
+                                    <div className="flex items-center gap-2 justify-end text-right flex-1 min-w-0">
+                                      <span className="truncate text-white font-bold">{homeTeamObj?.name || homeTeamId}</span>
+                                      <TeamFlag teamId={homeTeamId} className="w-5 h-3.5 shrink-0" />
+                                    </div>
+                                    <span className="text-neutral-500 font-semibold shrink-0">vs</span>
+                                    <div className="flex items-center gap-2 text-left flex-1 min-w-0">
+                                      <TeamFlag teamId={awayTeamId} className="w-5 h-3.5 shrink-0" />
+                                      <span className="truncate text-white font-bold">{awayTeamObj?.name || awayTeamId}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Prediction and Score details */}
+                                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                                    {/* Predicción */}
+                                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
+                                      <span className="text-neutral-400">Pred: </span>
+                                      <span className="text-emerald-400 font-extrabold">
+                                        {pred.predicted_home_score} - {pred.predicted_away_score}
+                                      </span>
+                                      {pred.predicted_winner_team_id && (
+                                        <span className="ml-1 text-[9px] bg-emerald-950 border border-emerald-500/20 text-emerald-400 font-bold px-1 rounded">
+                                          Gana: {pred.predicted_winner_team_id}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Puntos Ganados */}
+                                    {pred.points_earned !== null && pred.points_earned !== undefined && (
+                                      <div className="text-[11px] font-bold text-amber-500 shrink-0">
+                                        {`+${pred.points_earned} pts`}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Section 2: Partidos (Parte 2) */}
                       <div className="space-y-3 pt-2">
