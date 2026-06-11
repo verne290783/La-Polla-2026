@@ -213,8 +213,8 @@ export async function getPoolMembersRanking(poolId: string) {
 // 10. Obtener Leaderboard General (Global)
 export async function getGlobalLeaderboard() {
   const { data, error } = await supabase
-    .from('profiles')
-    .select('id, display_name, avatar_url, part1_points, part2_points, total_points')
+    .from('global_leaderboard_view')
+    .select('id, display_name, avatar_url, part1_points, part2_points, total_points, pool_name, pool_id, email')
     .order('total_points', { ascending: false })
     .order('display_name', { ascending: true })
     .limit(100); // Top 100 global

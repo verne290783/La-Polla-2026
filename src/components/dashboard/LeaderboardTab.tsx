@@ -71,14 +71,18 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
         poolId = selectedPoolId;
       } else {
         // leaderboardType === 'global'
-        const targetUserPools = await getUserPools(targetUser.id);
-        if (targetUserPools && targetUserPools.length > 0) {
-          const currentUserPoolIds = pools.map(p => p.id);
-          const sharedPool = targetUserPools.find(tp => currentUserPoolIds.includes(tp.id));
-          if (sharedPool) {
-            poolId = sharedPool.id;
-          } else {
-            poolId = targetUserPools[0].id;
+        if (targetUser.pool_id) {
+          poolId = targetUser.pool_id;
+        } else {
+          const targetUserPools = await getUserPools(targetUser.id);
+          if (targetUserPools && targetUserPools.length > 0) {
+            const currentUserPoolIds = pools.map(p => p.id);
+            const sharedPool = targetUserPools.find(tp => currentUserPoolIds.includes(tp.id));
+            if (sharedPool) {
+              poolId = sharedPool.id;
+            } else {
+              poolId = targetUserPools[0].id;
+            }
           }
         }
       }
@@ -326,16 +330,23 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                             row.display_name?.charAt(0).toUpperCase() || 'P'
                           )}
                         </div>
-                        <div className="flex items-center min-w-0">
-                          <button
-                            onClick={() => handleUserClick(row)}
-                            className="font-semibold text-left truncate max-w-[150px] md:max-w-none hover:text-emerald-400 hover:underline cursor-pointer focus:outline-none transition duration-150"
-                          >
-                            {row.display_name || row.email}
-                          </button>
-                          {isCurrentUser && (
-                            <span className="ml-2 shrink-0 text-[10px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-full uppercase">
-                              Tú
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center min-w-0">
+                            <button
+                              onClick={() => handleUserClick(row)}
+                              className="font-semibold text-left truncate max-w-[150px] md:max-w-none hover:text-emerald-400 hover:underline cursor-pointer focus:outline-none transition duration-150"
+                            >
+                              {row.display_name || row.email}
+                            </button>
+                            {isCurrentUser && (
+                              <span className="ml-2 shrink-0 text-[10px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-full uppercase">
+                                Tú
+                              </span>
+                            )}
+                          </div>
+                          {leaderboardType === 'global' && row.pool_name && (
+                            <span className="text-[10px] text-neutral-500 font-medium truncate mt-0.5 max-w-[200px]" title={row.pool_name}>
+                              🏆 Grupo: <span className="text-neutral-400 font-semibold">{row.pool_name}</span>
                             </span>
                           )}
                         </div>

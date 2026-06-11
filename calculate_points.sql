@@ -276,17 +276,27 @@ begin
       where pool_id = r_member.pool_id and user_id = r_member.user_id;
     end loop;
 
-    -- También actualizamos profiles.total_points para mantener un "Puntaje Global" del usuario
-    -- (usamos su puntaje MÁXIMO en cualquiera de sus grupos como su score global)
+    -- También actualizamos profiles con el mejor rendimiento del usuario
     for r_member in select distinct user_id from public.pool_members loop
-      update public.profiles
-      set
-        total_points = coalesce((
-          select max(total_points) 
-          from public.pool_members 
-          where user_id = r_member.user_id
-        ), 0)
-      where id = r_member.user_id;
+      declare
+        v_best_p1 int;
+        v_best_p2 int;
+        v_best_total int;
+      begin
+        select part1_points, part2_points, total_points
+        into v_best_p1, v_best_p2, v_best_total
+        from public.pool_members
+        where user_id = r_member.user_id
+        order by total_points desc, joined_at asc
+        limit 1;
+
+        update public.profiles
+        set
+          part1_points = coalesce(v_best_p1, 0),
+          part2_points = coalesce(v_best_p2, 0),
+          total_points = coalesce(v_best_total, 0)
+        where id = r_member.user_id;
+      end;
     end loop;
   end;
 
