@@ -119,3 +119,55 @@ Asegurar que la función public.compute_points en calculate_points.sql considere
 
 ### Base de Datos
 - [ ] La función compute_points procesa correctamente los goles finales (incluyendo prórroga) según lo registrado en la tabla matches para los partidos de eliminación.
+
+## Follow-up — 2026-06-12T22:27:49Z
+
+Implementar un mecanismo de sincronización en segundo plano condicional, automático y transparente que se active al cargar el Dashboard si hay partidos activos ya iniciados, controlando la tasa de llamadas a la API a un máximo de una consulta cada 2 minutos en toda la aplicación y deteniendo el polling cuando todos los partidos finalicen.
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Tabla de Horarios Verificada (104 Partidos)
+El plan de implementación debe incluir una tabla detallada con los 104 partidos, indicando ID, fase, equipos participantes, fecha/hora en formato UTC y la hora local convertida a Bogotá (UTC-5) para permitir una auditoría manual exhaustiva.
+
+### R2. Algoritmo de Sincronización Automática Simplificada (Client-Side Trigger + API Route)
+1. **Ruta de API `/api/matches/sync`**:
+   - **Paso A: Comprobar la Base de Datos Local**: Consultar si existe algún partido en la base de datos local que cumpla con: `status != 'finished'` y `match_date <= public.get_app_time()`.
+   - **Paso B: Retorno rápido sin API externa**: Si la base de datos local devuelve 0 partidos, retornar inmediatamente `{ activeMatchesCount: 0 }`. **No se realiza llamada alguna a la API externa de resultados**.
+   - **Paso C: Control de Tasa (Throttle)**: Si hay al menos un partido activo en la BD local, leer `last_sync_time` de `system_settings`. Si la diferencia entre la hora actual de la aplicación (`get_app_time()`) y `last_sync_time` es **menor a 2 minutos**, retornar inmediatamente `{ activeMatchesCount: N, synced: false }` (bloqueando consultas concurrentes innecesarias a la API externa).
+   - **Paso D: Sincronización Real**: Si han transcurrido **2 minutos o más** (o no existe registro previo):
+     1. Actualizar `last_sync_time` in `system_settings` con `get_app_time()` usando el cliente de Supabase con `service_role`.
+     2. Realizar la sincronización llamando a `syncRealScores()` de `@/lib/scoreSync.ts`.
+     3. Si algún partido cambió de estado a `'finished'` debido a la sincronización, invocar de forma preventiva el RPC `compute_points(match_id)` para asegurar el recálculo inmediato.
+     4. Retornar `{ activeMatchesCount: N, synced: true }`.
+
+2. **Disparador en el Dashboard (`src/app/dashboard/page.tsx`)**:
+   - Al cargar el Dashboard, ejecutar la petición de sincronización a `/api/matches/sync` de forma asíncrona.
+   - Si la API retorna `{ activeMatchesCount: 0 }`, no iniciar polling.
+   - Si la API retorna `{ activeMatchesCount: N }` donde `N > 0`:
+     - Iniciar un `setInterval` que realice la petición de sincronización a `/api/matches/sync` cada 2 minutos en segundo plano de manera transparente.
+     - Este interval continuará ejecutándose hasta que una petición de sincronización retorne `{ activeMatchesCount: 0 }`, momento en el cual se limpiará el interval (`clearInterval`) y se detendrá el polling.
+
+### R3. Husos Horarios (UTC vs Bogotá)
+Asegurar que todas las comparaciones de fechas en el servidor y base de datos utilicen la hora UTC de forma consistente (por ejemplo, comparando Date objects con `.getTime()` u offsets correctos frente a `get_app_time()`), y que en la interfaz (frontend) de usuario se formatee y muestre siempre la hora correspondiente a la zona horaria `'America/Bogota'`.
+
+### R4. Subir Cambios a GitHub
+Confirmar que todos los archivos modificados sean subidos a la rama principal (`origin/main`) mediante Git.
+
+## Acceptance Criteria
+
+### Verificación de Horarios
+- [ ] La tabla de los 104 partidos con columnas para UTC y Bogotá se encuentra registrada en `implementation_plan.md`.
+
+### Sincronización en Segundo Plano y Límite de Tasa
+- [ ] Al cargar el Dashboard, se realiza una llamada asíncrona a la API de sincronización.
+- [ ] La API de sincronización verifica primero en la BD local si hay partidos activos iniciados. Si no los hay, responde de inmediato y no se realiza ninguna llamada a la API externa.
+- [ ] Si no hay partidos activos iniciados, el Dashboard no inicia ningún polling y retorna inmediatamente.
+- [ ] Si hay partidos activos iniciados, el Dashboard establece un polling cada 2 minutos para realizar peticiones de sincronización en segundo plano.
+- [ ] La API de sincronización limita las peticiones externas a un máximo de una cada 2 minutos a nivel global mediante `last_sync_time` in the database.
+- [ ] Si la API actualiza un partido a `'finished'`, se dispara el recálculo automático de puntos mediante `compute_points(match_id)`.
+- [ ] Cuando todos los partidos activos pasan a `'finished'`, el Dashboard detiene y limpia el polling automáticamente.
+- [ ] Todas las comparaciones de fecha son consistentes con zonas horarias y el frontend muestra la hora de Bogotá.
+- [ ] Todos los cambios se confirman en Git y se suben a GitHub.

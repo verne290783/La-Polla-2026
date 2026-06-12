@@ -80,6 +80,49 @@ export default function Dashboard() {
     initDashboard();
   }, [router]);
 
+  // Background Match Synchronization Polling
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    async function checkAndSync() {
+      try {
+        console.log('[Background Sync] Fetching sync endpoint...');
+        const res = await fetch('/api/matches/sync');
+        if (!res.ok) {
+          console.error(`[Background Sync] Sync endpoint failed with status ${res.status}`);
+          return;
+        }
+        const data = await res.json();
+        console.log('[Background Sync] Response:', data);
+        
+        const count = data.activeMatchesCount ?? 0;
+        if (count > 0) {
+          if (!intervalId) {
+            console.log(`[Background Sync] Active matches detected: ${count}. Starting 2-minute polling interval.`);
+            intervalId = setInterval(checkAndSync, 120000); // 2 minutes
+          }
+        } else {
+          if (intervalId) {
+            console.log('[Background Sync] No active matches. Stopping polling interval.');
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+        }
+      } catch (error) {
+        console.error('[Background Sync] Error during background fetch:', error);
+      }
+    }
+
+    checkAndSync();
+
+    return () => {
+      if (intervalId) {
+        console.log('[Background Sync] Component unmounted. Clearing polling interval.');
+        clearInterval(intervalId);
+      }
+    };
+  }, []);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/');
