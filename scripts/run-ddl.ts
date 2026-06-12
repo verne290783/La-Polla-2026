@@ -21,7 +21,7 @@ const passwords = [
 ].filter(Boolean) as string[];
 
 async function run() {
-  const sqlPath = path.resolve(process.cwd(), '.agents/orchestrator_group_predictions/db_migration.sql');
+  const sqlPath = path.resolve(process.cwd(), 'calculate_points.sql');
   const sql = fs.readFileSync(sqlPath, 'utf8');
 
   let connectedClient: Client | null = null;

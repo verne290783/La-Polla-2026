@@ -4,14 +4,14 @@ import path from 'path';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const host = 'db.eidfwvezvzpvcgqnijhm.supabase.co';
-const port = 5432;
+const host = 'aws-1-us-east-2.pooler.supabase.com';
+const port = 6543;
 const database = 'postgres';
-const user = 'postgres';
+const user = 'postgres.eidfwvezvzpvcgqnijhm';
 const password = process.env.SUPABASE_DB_PASSWORD || 'LaPolla2026';
 
 async function run() {
-  console.log('Connecting to database...');
+  console.log(`Connecting to database pooler at ${host}:${port} as ${user}...`);
   const client = new Client({
     host,
     port,
@@ -30,8 +30,7 @@ async function run() {
       WHERE routine_schema = 'public' AND routine_name = 'compute_points';
     `);
     if (res.rows.length > 0) {
-      console.log('Function compute_points definition:');
-      console.log(res.rows[0].routine_definition);
+      console.log('Function compute_points definition retrieved successfully!');
     } else {
       console.log('Function compute_points not found.');
     }

@@ -93,97 +93,97 @@ const groupVenues: { city: string; venue: string }[][] = [
     { city: 'Ciudad de México', venue: 'Estadio Azteca' },
     { city: 'Guadalajara', venue: 'Estadio Akron' },
     { city: 'Guadalajara', venue: 'Estadio Akron' },
-    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
     { city: 'Ciudad de México', venue: 'Estadio Azteca' },
-    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
+    { city: 'Monterrey', venue: 'Estadio BBVA' }
   ],
   // Grupo B (gIdx = 1)
   [
     { city: 'Vancouver', venue: 'BC Place' },
-    { city: 'Los Angeles', venue: 'SoFi Stadium' },
-    { city: 'San Francisco', venue: "Levi's Stadium" },
     { city: 'Seattle', venue: 'Lumen Field' },
-    { city: 'Boston', venue: 'Gillette Stadium' },
-    { city: 'Toronto', venue: 'BMO Field' }
+    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
+    { city: 'Toronto', venue: 'BMO Field' },
+    { city: 'San Francisco', venue: "Levi's Stadium" }
   ],
   // Grupo C (gIdx = 2)
   [
     { city: 'New York/NJ', venue: 'MetLife Stadium' },
     { city: 'Boston', venue: 'Gillette Stadium' },
     { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
-    { city: 'Monterrey', venue: 'Estadio BBVA' },
-    { city: 'Houston', venue: 'NRG Stadium' },
-    { city: 'Dallas', venue: 'AT&T Stadium' }
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'Miami', venue: 'Hard Rock Stadium' },
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
   ],
   // Grupo D (gIdx = 3)
   [
     { city: 'Los Angeles', venue: 'SoFi Stadium' },
-    { city: 'Boston', venue: 'Gillette Stadium' },
     { city: 'Vancouver', venue: 'BC Place' },
-    { city: 'New York/NJ', venue: 'MetLife Stadium' },
+    { city: 'Seattle', venue: 'Lumen Field' },
     { city: 'San Francisco', venue: "Levi's Stadium" },
-    { city: 'Seattle', venue: 'Lumen Field' }
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
+    { city: 'San Francisco', venue: "Levi's Stadium" }
   ],
   // Grupo E (gIdx = 4)
   [
     { city: 'Houston', venue: 'NRG Stadium' },
-    { city: 'Monterrey', venue: 'Estadio BBVA' },
     { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
+    { city: 'Toronto', venue: 'BMO Field' },
+    { city: 'Kansas City', venue: 'Arrowhead Stadium' },
     { city: 'New York/NJ', venue: 'MetLife Stadium' },
-    { city: 'Dallas', venue: 'AT&T Stadium' },
-    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
+    { city: 'Philadelphia', venue: 'Lincoln Financial Field' }
   ],
   // Grupo F (gIdx = 5)
   [
     { city: 'Dallas', venue: 'AT&T Stadium' },
     { city: 'Monterrey', venue: 'Estadio BBVA' },
-    { city: 'Miami', venue: 'Hard Rock Stadium' },
-    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
-    { city: 'Los Angeles', venue: 'SoFi Stadium' },
-    { city: 'Seattle', venue: 'Lumen Field' }
+    { city: 'Houston', venue: 'NRG Stadium' },
+    { city: 'Monterrey', venue: 'Estadio BBVA' },
+    { city: 'Kansas City', venue: 'Arrowhead Stadium' },
+    { city: 'Dallas', venue: 'AT&T Stadium' }
   ],
   // Grupo G (gIdx = 6)
   [
     { city: 'Seattle', venue: 'Lumen Field' },
     { city: 'Los Angeles', venue: 'SoFi Stadium' },
-    { city: 'San Francisco', venue: "Levi's Stadium" },
+    { city: 'Los Angeles', venue: 'SoFi Stadium' },
     { city: 'Vancouver', venue: 'BC Place' },
-    { city: 'Boston', venue: 'Gillette Stadium' },
-    { city: 'New York/NJ', venue: 'MetLife Stadium' }
+    { city: 'Vancouver', venue: 'BC Place' },
+    { city: 'Seattle', venue: 'Lumen Field' }
   ],
   // Grupo H (gIdx = 7)
   [
+    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
     { city: 'Miami', venue: 'Hard Rock Stadium' },
     { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
-    { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
-    { city: 'Houston', venue: 'NRG Stadium' },
-    { city: 'Dallas', venue: 'AT&T Stadium' },
-    { city: 'Kansas City', venue: 'Arrowhead Stadium' }
+    { city: 'Miami', venue: 'Hard Rock Stadium' },
+    { city: 'Guadalajara', venue: 'Estadio Akron' },
+    { city: 'Houston', venue: 'NRG Stadium' }
   ],
   // Grupo I (gIdx = 8)
   [
     { city: 'New York/NJ', venue: 'MetLife Stadium' },
     { city: 'Boston', venue: 'Gillette Stadium' },
-    { city: 'Kansas City', venue: 'Arrowhead Stadium' },
-    { city: 'San Francisco', venue: "Levi's Stadium" },
-    { city: 'Dallas', venue: 'AT&T Stadium' },
-    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
+    { city: 'Boston', venue: 'Gillette Stadium' },
+    { city: 'Toronto', venue: 'BMO Field' },
+    { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
+    { city: 'New York/NJ', venue: 'MetLife Stadium' }
   ],
   // Grupo J (gIdx = 9)
   [
+    { city: 'Kansas City', venue: 'Arrowhead Stadium' },
     { city: 'San Francisco', venue: "Levi's Stadium" },
-    { city: 'Los Angeles', venue: 'SoFi Stadium' },
-    { city: 'Seattle', venue: 'Lumen Field' },
-    { city: 'Vancouver', venue: 'BC Place' },
-    { city: 'Boston', venue: 'Gillette Stadium' },
-    { city: 'New York/NJ', venue: 'MetLife Stadium' }
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'San Francisco', venue: "Levi's Stadium" },
+    { city: 'Dallas', venue: 'AT&T Stadium' },
+    { city: 'Kansas City', venue: 'Arrowhead Stadium' }
   ],
   // Grupo K (gIdx = 10)
   [
     { city: 'Houston', venue: 'NRG Stadium' },
-    { city: 'Dallas', venue: 'AT&T Stadium' },
-    { city: 'Toronto', venue: 'BMO Field' },
-    { city: 'Kansas City', venue: 'Arrowhead Stadium' },
+    { city: 'Mexico City', venue: 'Estadio Azteca' },
+    { city: 'Houston', venue: 'NRG Stadium' },
+    { city: 'Guadalajara', venue: 'Estadio Akron' },
     { city: 'Miami', venue: 'Hard Rock Stadium' },
     { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' }
   ],
@@ -191,10 +191,10 @@ const groupVenues: { city: string; venue: string }[][] = [
   [
     { city: 'Dallas', venue: 'AT&T Stadium' },
     { city: 'Toronto', venue: 'BMO Field' },
-    { city: 'Atlanta', venue: 'Mercedes-Benz Stadium' },
     { city: 'Boston', venue: 'Gillette Stadium' },
-    { city: 'Philadelphia', venue: 'Lincoln Financial Field' },
-    { city: 'New York/NJ', venue: 'MetLife Stadium' }
+    { city: 'Toronto', venue: 'BMO Field' },
+    { city: 'New York/NJ', venue: 'MetLife Stadium' },
+    { city: 'Philadelphia', venue: 'Lincoln Financial Field' }
   ]
 ];
 

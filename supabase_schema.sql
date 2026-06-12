@@ -32,6 +32,7 @@ create table public.profiles (
   part2_points int default 0,
   total_points int default 0,
   is_admin boolean default false,
+  p1_unlocked_until timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -62,6 +63,62 @@ exception
     return now();
 end;
 $$ language plpgsql stable;
+
+-- Define RPC admin_unlock_user_p1
+CREATE OR REPLACE FUNCTION public.admin_unlock_user_p1(p_user_id uuid)
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true) THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+  
+  UPDATE public.profiles
+  SET p1_unlocked_until = public.get_app_time() + interval '24 hours'
+  WHERE id = p_user_id;
+
+  UPDATE public.champion_predictions
+  SET is_locked = false
+  WHERE user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Define RPC admin_lock_user_p1
+CREATE OR REPLACE FUNCTION public.admin_lock_user_p1(p_user_id uuid)
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true) THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  UPDATE public.profiles
+  SET p1_unlocked_until = null
+  WHERE id = p_user_id;
+
+  UPDATE public.champion_predictions
+  SET is_locked = true
+  WHERE user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Define RPC recalculate_all_points
+CREATE OR REPLACE FUNCTION public.recalculate_all_points()
+RETURNS void AS $$
+DECLARE
+  r_match record;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true) THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  FOR r_match IN 
+    SELECT id FROM public.matches 
+    WHERE status IN ('finished', 'live') 
+    ORDER BY match_date ASC, id ASC
+  LOOP
+    PERFORM public.compute_points(r_match.id);
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Tabla de selecciones nacionales
 create table public.teams (
@@ -227,14 +284,30 @@ create policy "Usuarios pueden modificar sus predicciones de la Parte 1"
   using (auth.uid() = user_id)
   with check (
     auth.uid() = user_id 
-    and get_app_time() < '2026-06-11T20:00:00Z'::timestamp with time zone -- Límite de bloqueo Parte 1
+    and (
+      get_app_time() < '2026-06-11T20:00:00Z'::timestamp with time zone
+      or exists (
+        select 1 from public.profiles
+        where id = auth.uid()
+        and p1_unlocked_until is not null
+        and p1_unlocked_until > get_app_time()
+      )
+    )
   );
 
 create policy "Usuarios pueden ver predicciones de otros si están bloqueadas o son propias"
   on public.full_tournament_predictions for select
   using (
     auth.uid() = user_id
-    or get_app_time() >= '2026-06-11T20:00:00Z'::timestamp with time zone
+    or (
+      get_app_time() >= '2026-06-11T20:00:00Z'::timestamp with time zone
+      and not exists (
+        select 1 from public.profiles
+        where id = full_tournament_predictions.user_id
+        and p1_unlocked_until is not null
+        and p1_unlocked_until > get_app_time()
+      )
+    )
   );
 
 -- Políticas para Phase Predictions (Parte 2)
@@ -259,12 +332,28 @@ create policy "Usuarios pueden modificar sus campeones de la Parte 1"
   using (auth.uid() = user_id)
   with check (
     auth.uid() = user_id
-    and get_app_time() < '2026-06-11T20:00:00Z'::timestamp with time zone
+    and (
+      get_app_time() < '2026-06-11T20:00:00Z'::timestamp with time zone
+      or exists (
+        select 1 from public.profiles
+        where id = auth.uid()
+        and p1_unlocked_until is not null
+        and p1_unlocked_until > get_app_time()
+      )
+    )
   );
 
 create policy "Usuarios pueden ver campeones de otros si están bloqueados"
   on public.champion_predictions for select
   using (
     auth.uid() = user_id
-    or get_app_time() >= '2026-06-11T20:00:00Z'::timestamp with time zone
+    or (
+      get_app_time() >= '2026-06-11T20:00:00Z'::timestamp with time zone
+      and not exists (
+        select 1 from public.profiles
+        where id = champion_predictions.user_id
+        and p1_unlocked_until is not null
+        and p1_unlocked_until > get_app_time()
+      )
+    )
   );

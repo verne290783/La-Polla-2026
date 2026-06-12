@@ -9,7 +9,8 @@ import {
   saveP1Predictions, 
   getP2Predictions, 
   saveP2Prediction,
-  getUserPools
+  getUserPools,
+  getProfile
 } from '@/lib/db-helpers';
 import { LOCK_PART1_DATE } from '@/lib/fifa/state';
 import TeamFlag from '@/components/common/TeamFlag';
@@ -24,6 +25,13 @@ import {
 interface FixtureTabProps {
   userId: string;
 }
+
+const getUserP1LockDate = (uid: string) => {
+  if (uid === '2a1f732f-fc90-4e93-830a-0cd8fcbf0c9f') {
+    return new Date('2026-06-12T01:00:00Z'); // Límite de Ricardo (1h antes del partido #2)
+  }
+  return LOCK_PART1_DATE; // Límite general
+};
 
 export default function FixtureTab({ userId }: FixtureTabProps) {
   const [subTab, setSubTab] = useState<'part1' | 'part2'>('part1');
@@ -42,6 +50,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
   const [p1GroupPreds, setP1GroupPreds] = useState<Record<number, { homeScore: number | ''; awayScore: number | '' }>>({});
   const [p1KoPreds, setP1KoPreds] = useState<Record<string, { homeScore: number | ''; awayScore: number | ''; winnerId?: string }>>({});
   const [p1Locked, setP1Locked] = useState(false);
+  const [p1UnlockedUntil, setP1UnlockedUntil] = useState<string | null>(null);
   const [activeGroupWizard, setActiveGroupWizard] = useState<'A'|'B'|'C'|'D'|'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'>('A');
 
   // Parte 2 Live Predictions Feed State
@@ -81,13 +90,16 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
   // Timer interval for lock counts in P2 (usando hora real) y bloqueo en vivo de la Parte 1
   useEffect(() => {
+    if (!userId) return;
+
     const interval = setInterval(() => {
       const remaining: Record<number, string> = {};
       const vTime = new Date().getTime();
       
       // Bloqueo en tiempo real de la Parte 1 al llegar a la hora límite
-      const isPastP1Limit = vTime >= LOCK_PART1_DATE.getTime();
-      if (isPastP1Limit) {
+      const isPastP1Limit = vTime >= getUserP1LockDate(userId).getTime();
+      const isUnlocked = p1UnlockedUntil && new Date(p1UnlockedUntil).getTime() > vTime;
+      if (isPastP1Limit && !isUnlocked) {
         setP1Locked(prev => {
           if (!prev) return true;
           return prev;
@@ -110,19 +122,23 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [matches]);
+  }, [matches, userId, p1UnlockedUntil]);
 
   async function loadData(poolId: string) {
     try {
       setLoading(true);
 
-      const [allMatches, allTeams, p1PredsList, p1Champ, p2PredsList] = await Promise.all([
+      const [allMatches, allTeams, p1PredsList, p1Champ, p2PredsList, userProfile] = await Promise.all([
         getMatches(),
         getTeams(),
         getP1Predictions(userId, poolId),
         getChampionPrediction(userId, poolId),
-        getP2Predictions(userId, poolId)
+        getP2Predictions(userId, poolId),
+        getProfile(userId)
       ]);
+
+      const unlockedTime = userProfile?.p1_unlocked_until || null;
+      setP1UnlockedUntil(unlockedTime);
 
       setMatches(allMatches);
       setTeams(allTeams);
@@ -135,9 +151,15 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // --- Cargar Parte 1 ---
       // Si el mundial ya empezó de forma real o ya existe una predicción del campeón, bloquear
-      const isPastP1Limit = new Date().getTime() >= LOCK_PART1_DATE.getTime();
+      const isPastP1Limit = new Date().getTime() >= getUserP1LockDate(userId).getTime();
       const hasLockedP1 = p1Champ !== null && p1Champ.is_locked === true;
-      setP1Locked(isPastP1Limit || hasLockedP1);
+      
+      const isUnlocked = unlockedTime && new Date(unlockedTime).getTime() > new Date().getTime();
+      if (isUnlocked) {
+        setP1Locked(false);
+      } else {
+        setP1Locked(isPastP1Limit || hasLockedP1);
+      }
 
       // Inicializar predicciones P1 del usuario si existen
       const groupPredsLocal: Record<number, { homeScore: number | ''; awayScore: number | '' }> = {};

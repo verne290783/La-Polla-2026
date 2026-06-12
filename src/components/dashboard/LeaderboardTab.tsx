@@ -18,6 +18,13 @@ interface LeaderboardTabProps {
   currentUserId: string;
 }
 
+const getUserP1LockDate = (uid: string) => {
+  if (uid === '2a1f732f-fc90-4e93-830a-0cd8fcbf0c9f') {
+    return new Date('2026-06-12T01:00:00Z');
+  }
+  return LOCK_PART1_DATE;
+};
+
 export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
   const [ranking, setRanking] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -435,7 +442,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                           🏆 Podio Pronosticado (Parte 1)
                         </h4>
                         
-                        {new Date().getTime() < LOCK_PART1_DATE.getTime() ? (
+                        {new Date().getTime() < getUserP1LockDate(selectedUser.id).getTime() ? (
                           <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
                             🔒 Podio oculto hasta el cierre de predicciones de la Parte 1
                           </div>
@@ -491,7 +498,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                       </div>
 
                       {/* Section 1.5: Partidos Pronosticados (Parte 1) */}
-                      {new Date().getTime() >= LOCK_PART1_DATE.getTime() && modalP1Predictions.length > 0 && (
+                      {new Date().getTime() >= getUserP1LockDate(selectedUser.id).getTime() && modalP1Predictions.length > 0 && (
                         <div className="space-y-3 pt-2">
                           <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
                             ⚽ Partidos Pronosticados (Parte 1)

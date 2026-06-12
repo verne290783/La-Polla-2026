@@ -4,25 +4,19 @@ import { syncRealScores } from '@/lib/scoreSync';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const secretParam = searchParams.get('secret');
+  const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
+  const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
 
-  // Obtener token Bearer de cabecera de autorización por si se usa en Vercel Cron
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-  const expectedSecret = process.env.CRON_SECRET;
-
-  if (!expectedSecret || (secretParam !== expectedSecret && bearerToken !== expectedSecret)) {
+  if (!process.env.CRON_SECRET || authHeader !== expectedToken) {
     return NextResponse.json(
-      { error: 'No autorizado. Se requiere un secret token válido.' },
+      { error: 'Unauthorized' },
       { status: 401 }
     );
   }
 
   try {
     const result = await syncRealScores();
-    return NextResponse.json(result);
+    return NextResponse.json(result, { status: 200 });
   } catch (err: any) {
     console.error('Error durante la sincronización cron:', err);
     return NextResponse.json(
@@ -34,6 +28,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-export async function POST(request: NextRequest) {
-  return GET(request);
-}
+

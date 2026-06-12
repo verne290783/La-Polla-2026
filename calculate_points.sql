@@ -19,6 +19,7 @@ declare
   v_ph int; -- Predicted Home Goals
   v_pa int; -- Predicted Away Goals
   v_pw text; -- Predicted Winner ID
+  v_pred_key text;
 begin
   -- 1. Obtener detalles del partido real
   select * into r_match from public.matches where id = p_match_id;
@@ -129,9 +130,23 @@ begin
   -- =====================================================================
   -- 3. CALCULAR PUNTOS PARA PARTE 1 ( full_tournament_predictions - Wizard )
   -- =====================================================================
+  if p_match_id <= 72 then
+    v_pred_key := 'G_' || p_match_id;
+  elsif p_match_id <= 88 then
+    v_pred_key := 'P1_R32_M' || p_match_id;
+  elsif p_match_id <= 96 then
+    v_pred_key := 'P1_R16_M' || p_match_id;
+  elsif p_match_id <= 100 then
+    v_pred_key := 'P1_QF_M' || p_match_id;
+  elsif p_match_id <= 104 then
+    v_pred_key := 'P1_SF_M' || p_match_id;
+  else
+    v_pred_key := 'M' || p_match_id;
+  end if;
+
   for r_pred in 
     select * from public.full_tournament_predictions 
-    where prediction_key = 'M' || p_match_id
+    where prediction_key = v_pred_key
   loop
     v_pts := 0;
 
@@ -255,15 +270,27 @@ begin
       from public.full_tournament_predictions 
       where user_id = r_member.user_id and pool_id = r_member.pool_id;
 
+      IF v_total_p1 IS NULL THEN
+        v_total_p1 := 0;
+      END IF;
+
       -- Suma Parte 2 en ese grupo
       select coalesce(sum(points_earned), 0) into v_total_p2 
       from public.phase_predictions 
       where user_id = r_member.user_id and pool_id = r_member.pool_id;
 
+      IF v_total_p2 IS NULL THEN
+        v_total_p2 := 0;
+      END IF;
+
       -- Bonus campeones en ese grupo
       select coalesce(points_earned, 0) into v_bonus 
       from public.champion_predictions 
       where user_id = r_member.user_id and pool_id = r_member.pool_id;
+
+      IF v_bonus IS NULL THEN
+        v_bonus := 0;
+      END IF;
 
       v_total_p1 := v_total_p1 + v_bonus;
 
@@ -290,6 +317,10 @@ begin
         order by total_points desc, joined_at asc
         limit 1;
 
+        IF v_best_p1 IS NULL THEN v_best_p1 := 0; END IF;
+        IF v_best_p2 IS NULL THEN v_best_p2 := 0; END IF;
+        IF v_best_total IS NULL THEN v_best_total := 0; END IF;
+
         update public.profiles
         set
           part1_points = coalesce(v_best_p1, 0),
@@ -303,18 +334,42 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Trigger para automatizar el cálculo al terminar un partido
-create or replace function public.calculate_points_on_match_finish()
-returns trigger as $$
-begin
-  if new.status = 'finished' and (old.status is null or old.status <> 'finished') then
-    perform public.compute_points(new.id);
-  end if;
-  return new;
-end;
-$$ language plpgsql security definer;
+-- Define RPC recalculate_all_points
+CREATE OR REPLACE FUNCTION public.recalculate_all_points()
+RETURNS void AS $$
+DECLARE
+  r_match record;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true) THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
 
-drop trigger if exists tr_calculate_points on public.matches;
-create trigger tr_calculate_points
-  after update on public.matches
-  for each row execute procedure public.calculate_points_on_match_finish();
+  FOR r_match IN 
+    SELECT id FROM public.matches 
+    WHERE status IN ('finished', 'live') 
+    ORDER BY match_date ASC, id ASC
+  LOOP
+    PERFORM public.compute_points(r_match.id);
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger para automatizar el cálculo al terminar un partido o actualizar su marcador
+CREATE OR REPLACE FUNCTION public.calculate_points_on_match_finish()
+RETURNS trigger AS $$
+BEGIN
+  IF (new.status = 'finished' AND (old.status IS NULL OR old.status <> 'finished')) OR
+     (new.status = 'finished' AND old.status = 'finished' AND 
+      (new.home_score IS DISTINCT FROM old.home_score OR 
+       new.away_score IS DISTINCT FROM old.away_score)) THEN
+    PERFORM public.compute_points(new.id);
+  END IF;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS tr_calculate_points ON public.matches;
+CREATE TRIGGER tr_calculate_points
+  AFTER UPDATE ON public.matches
+  FOR EACH ROW EXECUTE PROCEDURE public.calculate_points_on_match_finish();
+

@@ -1,85 +1,98 @@
 # Original User Request
 
-## Initial Request — 2026-06-10T19:09:47-05:00
+## Initial Request — 2026-06-11T18:10:30-05:00
 
-You are the Project Orchestrator (teamwork_preview_orchestrator).
-Your coordination workspace directory is: c:\Users\Edison\Desktop\LaPolla\.agents\orchestrator_group_filtering
-The project repository directory is: c:\Users\Edison\Desktop\LaPolla
-
-Your task is to fix the Group Stage match filtering bug in the prediction wizard.
-
-Requirements:
-R1. Replace external_match_id string parsing with static group mapping
-- Define a static map of team IDs to their respective group letters (A-L).
-- Update the group-filtering logic in `FixtureTab.tsx` and `bracket.ts` to resolve the group of a match from its team IDs instead of trying to parse it from `external_match_id`.
-
-Acceptance Criteria:
-UI & UX:
-- The Group Stage matches for the selected group (A-L) render correctly in Step 1 of the prediction wizard (Parte 1).
-- Changing active groups in the wizard dynamically updates the list to show matches for the selected group.
-
-Reliability:
-- Standings tables and best-third-place calculations work correctly based on the static group mapping.
-- Next.js compiles cleanly with no typescript errors.
-
-Please initialize your briefing, planning, and execution phases. Output a handoff or a progress update when done. Report completion once all tasks are validated and the project compiles cleanly.
-
-## Follow-up — 2026-06-11T14:41:18Z
-
-Redesign the match prediction layout and input fields in the prediction wizard (`FixtureTab.tsx`) to improve mobile usability, increase touch target sizes, and prevent inputs from overlapping with flags and team names on mobile browsers.
+Corregir el bug de propagación de valores NULL en la función de base de datos `compute_points` y en el archivo `calculate_points.sql` para asegurar que los usuarios que no tienen predicciones de campeón (Parte 1) sumen correctamente sus puntos de la Parte 2.
 
 Working directory: c:\Users\Edison\Desktop\LaPolla
 Integrity mode: development
 
 ## Requirements
 
-### R1. Responsive Flex-based Match Card Layout
-- Replace the rigid 7-column grid layout (`grid-cols-7`) used for match rows in all wizard steps and in Part 2 (Live / En Vivo) with a responsive layout (such as a flexbox layout: `flex items-center justify-between`).
-- Ensure the home team (name and flag) is aligned to the right on the left side, the away team (flag and name) is aligned to the left on the right side, and the inputs are centered with a fixed non-shrinking width (`flex-shrink-0`).
-- Truncate long team names safely on small screens to ensure they do not squeeze or push the inputs.
+### R1. Corrección de la función SQL compute_points
+- Modificar la función `compute_points` en `calculate_points.sql` para agregar validaciones de nulidad (`IF v_bonus IS NULL THEN v_bonus := 0; END IF;`) en todas las variables que se asignen mediante sentencias `SELECT INTO` regulares que puedan retornar 0 filas.
+- Asegurar que `part1_points` y `total_points` no queden en `NULL` para usuarios sin registros en `champion_predictions` o `full_tournament_predictions`.
 
-### R2. Enhanced Touch Targets and Spacing
-- Increase the size of the score input fields on mobile devices to a minimum of `w-12 h-12` (48px) or `w-11 h-11` (44px) to conform with mobile touch target accessibility standards (allowing smaller sizes on desktop, e.g., `sm:w-10 sm:h-10`).
-- Ensure there is adequate margin/gap (minimum `gap-3` or equivalent padding) between the flag icon and the score input fields to prevent accidental finger taps.
+### R2. Aplicar cambios en Supabase y Recalcular
+- Aplicar la nueva definición de la función en la base de datos remota de Supabase.
+- Ejecutar la función para recalcular las puntuaciones de todos los partidos jugados hasta el momento, corrigiendo de inmediato los puntajes de los usuarios afectados (como Claudia Romero y Addemar Ávila).
 
 ## Acceptance Criteria
 
-### UI & UX (Mobile)
-- [ ] Match rows do not overflow their cards on narrow screens (down to 320px).
-- [ ] Team flags and names do not overlap with or touch the prediction input fields.
-- [ ] Score inputs have a touch target of at least 44x44px on mobile devices.
-- [ ] Tapping anywhere near the input fields accurately focuses the input without hitting the flag icon or team name.
+### Correctness & Calculations
+- [ ] El archivo `calculate_points.sql` contiene la lógica corregida libre de propagación de `NULL`.
+- [ ] La función corregida está cargada en Supabase.
+- [ ] Los usuarios Claudia Romero y Addemar Ávila muestran un puntaje Total de `6` y `3` puntos respectivamente en el Leaderboard (tanto global como de grupo) en lugar de `0`.
+- [ ] La aplicación compila de forma limpia y pasa todas las pruebas locales (`npm run build` y `scripts/run-e2e-tests.ts`).
 
-### Technical
-- [ ] All wizard steps (Grupos, R32, Octavos, Cuartos, Semis, Final) and Part 2 (Live/En Vivo) reflect the new responsive layout.
-- [ ] The application compiles cleanly with `npm run build` and no linter warnings are generated.
+## Follow-up — 2026-06-12T08:30:25-05:00
 
-## Follow-up — 2026-06-11T15:20:39Z
-
-Improve the usability of the score input fields in the prediction wizard (`FixtureTab.tsx`) so that clicking or tapping an input automatically selects all text, and deleting the number allows the input to be temporarily empty (defaulting to 0 on blur).
+Implementar una solución integral y robusta para la gestión y actualización de resultados en el portal de la Polla 2026. Esto incluye un Panel de Administración exclusivo para el usuario administrador `ehdiazs@gmail.com` que permita el ingreso manual de marcadores, el recálculo manual de posiciones y el desbloqueo de predicciones de la Parte 1 para usuarios individuales, además de mejorar la tolerancia a fallos del mecanismo de sincronización automática.
 
 Working directory: c:\Users\Edison\Desktop\LaPolla
 Integrity mode: development
 
 ## Requirements
 
-### R1. Auto-Select Input Text on Focus
-- Add an `onFocus` event handler to all score input fields (for both Part 1 and Part 2 prediction fields in `FixtureTab.tsx`) that automatically selects the entire content of the input (using `e.target.select()`).
-- This should make it so tapping or clicking the input immediately highlights the existing number, allowing it to be overwritten immediately upon typing.
+### R1. Restricción y Pestaña de Administración en el Dashboard
+- Agregar una pestaña de "Admin" (Panel de Control) en el menú lateral y móvil del Dashboard.
+- Esta pestaña debe ser visible **únicamente** para el usuario administrador con el email `ehdiazs@gmail.com` (o que tenga `is_admin = true` en su perfil).
+- Reemplazar el componente vacío `src/components/dashboard/AdminControl.tsx` para renderizar el panel administrativo.
 
-### R2. Allow Temporary Empty State and Default to 0 on Blur
-- Modify the change handlers (`onChange`) so that if the user deletes the value (leaving it empty), the state stores an empty string `""` or `null` instead of forcing a `0` immediately. This allows users to clear the field with backspace.
-- Add an `onBlur` event handler to all score input fields that resets the value to `0` in the state if the input is left blank when focus is lost.
-- Ensure that any bracket calculation or saving function treats empty values as `0` rather than causing errors or storing invalid data.
+### R2. Edición Manual de Marcadores y Estados de Partidos
+- En el panel de administración, mostrar un listado interactivo con todos los partidos del torneo (con buscador o filtros de fase).
+- Permitir al administrador modificar y guardar de forma individual los goles reales (`home_score`, `away_score`), el estado del partido (`scheduled`, `live`, `finished`) y el ganador (`winner_team_id` para fases eliminatorias).
+- Al guardar un partido como `finished`, se debe disparar el cómputo automático de puntos de los usuarios para ese partido.
+
+### R3. Desbloqueo Individual de Predicciones de la Parte 1 (La Gran Polla)
+- Añadir en el panel de administración una sección con el listado de todos los usuarios registrados (con su email y nombre).
+- Para cada usuario, mostrar su estado actual de bloqueo de la Parte 1 (Bloqueado/Abierto) y botones para:
+  1. **Desbloquear (24 horas)**: Permite a ese usuario específico volver a editar y guardar su predicción completa del bracket (Parte 1) durante 24 horas, incluso si la fecha límite general ya pasó.
+  2. **Bloquear de nuevo**: Forzar el bloqueo inmediato del usuario.
+- **Base de Datos**:
+  - Agregar la columna `p1_unlocked_until` (timestamp con zona horaria) en la tabla `profiles` para gestionar los desbloqueos temporales.
+  - Modificar las políticas RLS de `full_tournament_predictions` y `champion_predictions` para permitir edición si la hora actual de la aplicación (`get_app_time()`) es menor a `p1_unlocked_until`.
+  - Crear funciones seguras RPC en base de datos (`admin_unlock_user_p1` y `admin_lock_user_p1`) definidas con `SECURITY DEFINER` que verifiquen que el ejecutor sea administrador antes de aplicar los cambios en la BD.
+- **Frontend**:
+  - Modificar `FixtureTab.tsx` para que, si el perfil del usuario tiene una fecha `p1_unlocked_until` vigente, no bloquee la interfaz de edición y permita guardar borradores o bloquear la predicción.
+
+### R4. Sincronización Automática Híbrida y On-Demand
+- Implementar un botón "Sincronizar API" en el panel administrativo para gatillar la actualización en el acto.
+- Robustecer la lógica en `src/lib/scoreSync.ts` para realizar una sincronización híbrida:
+  1. Intentar obtener datos desde `api.football-data.org` usando la API key en las variables de entorno.
+  2. Si hay error o límite de cuota, usar como fallback `worldcup26.ir`.
+  3. Si ambas fallan, registrar el error y mostrarlo en la interfaz del admin de forma controlada.
+- Programar una tarea cron nativa en la base de datos de Supabase usando la extensión `pg_cron` (o `pg_net`) que llame automáticamente a `/api/cron/sync-scores` con el `CRON_SECRET` cada 10 minutos.
+
+### R5. Recálculo Manual de Puntos
+- Agregar un botón "Recalcular Puntos" en el panel para forzar la ejecución de la función `compute_points` en Supabase para todos los partidos finalizados.
+
+### R6. Preservación Absoluta de Datos de Predicciones Existentes
+- **REGLA DE INTEGRIDAD**: No alterar, borrar ni reiniciar bajo ninguna circunstancia los datos de las predicciones ya realizadas por los usuarios existentes en la base de datos (tablas `full_tournament_predictions`, `phase_predictions` y `champion_predictions`). Estos datos son sagrados. Cualquier prueba de cálculo debe realizarse con usuarios nuevos/ficticios o sin sobreescribir las predicciones existentes de usuarios reales.
 
 ## Acceptance Criteria
 
-### UI & UX
-- [ ] Focusing/tapping any score input field (Group stage, knockouts, or Part 2) automatically highlights the entire number.
-- [ ] Clearing a score input field with backspace leaves the input field empty (blank) while focused, rather than immediately reverting to `0`.
-- [ ] Tapping outside or blurring the empty input field automatically resets its value to `0` in the state and UI.
+### UI & UX (Admin Panel)
+- [ ] La pestaña "Admin" solo aparece para `ehdiazs@gmail.com`.
+- [ ] La lista de partidos permite cambiar marcador, estado y ganador y guardarlos.
+- [ ] La lista de usuarios muestra los botones para Desbloquear (24h) y Bloquear.
+- [ ] Los botones de Sincronización y Recálculo tienen estados de carga y feedback visual claro.
 
-### Technical
-- [ ] Next.js compiles cleanly with `npm run build` and no typescript/linter errors are introduced.
-- [ ] The E2E tests compile and pass.
+### Lógica y Base de Datos
+- [ ] Cuando un usuario es desbloqueado por el admin, su pantalla de La Gran Polla (Parte 1) se habilita inmediatamente para edición, y puede guardar cambios con éxito.
+- [ ] Cuando la fecha de desbloqueo expira o se vuelve a bloquear, el usuario ya no puede guardar cambios y ve su predicción bloqueada.
+- [ ] Durante el periodo de desbloqueo de un usuario, el resto de los participantes no pueden ver sus predicciones en las tablas o modales de posiciones para evitar copia/trampa.
+- [ ] La sincronización de API funciona de forma transparente usando el fallback si la primera API no responde.
+- [ ] La aplicación Next.js compila limpiamente (`npm run build`).
 
+## Verification Plan
+
+### Automated Tests
+- Ejecutar `npx tsx scripts/run-e2e-tests.ts` para verificar la estabilidad de los componentes existentes.
+- Probar la compilación y tipado completo mediante `npm run build` y `npm run lint`.
+
+### Manual Verification
+- Iniciar sesión como `ehdiazs@gmail.com`, confirmar la visualización de la pestaña Admin.
+- Iniciar sesión como un usuario regular, verificar que no se muestra la pestaña Admin.
+- Desbloquear un usuario de prueba en el panel Admin y confirmar que dicho usuario puede modificar su Parte 1, mientras que un usuario normal no puede y ve "Bloqueado".
+- Verificar que las predicciones del usuario desbloqueado no sean visibles para otros usuarios hasta que se bloquee de nuevo.

@@ -228,8 +228,8 @@ export async function getGlobalLeaderboard() {
 // 13. Actualizar Resultado de un Partido (Solo Admin)
 export async function updateMatchResult(
   matchId: number,
-  homeScore: number,
-  awayScore: number,
+  homeScore: number | null,
+  awayScore: number | null,
   status: 'scheduled' | 'live' | 'finished',
   winnerTeamId?: string | null
 ) {
