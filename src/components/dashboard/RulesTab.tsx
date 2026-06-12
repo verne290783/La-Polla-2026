@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface AccordionSection {
   id: string;
@@ -21,6 +21,24 @@ export default function RulesTab() {
   const [predAway, setPredAway] = useState<number>(1);
   const [realWinner, setRealWinner] = useState<'home' | 'away'>('home');
   const [predWinner, setPredWinner] = useState<'home' | 'away'>('home');
+
+  // Sync realWinner when real score changes (automatic selection if not a draw)
+  useEffect(() => {
+    if (realHome > realAway) {
+      setRealWinner('home');
+    } else if (realAway > realHome) {
+      setRealWinner('away');
+    }
+  }, [realHome, realAway]);
+
+  // Sync predWinner when predicted score changes (automatic selection if not a draw)
+  useEffect(() => {
+    if (predHome > predAway) {
+      setPredWinner('home');
+    } else if (predAway > predHome) {
+      setPredWinner('away');
+    }
+  }, [predHome, predAway]);
 
   // Cálculo de puntos simulado
   const calculateSimulatedPoints = () => {
@@ -360,15 +378,21 @@ export default function RulesTab() {
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    disabled={realHome !== realAway}
                     onClick={() => setRealWinner('home')}
-                    className={`flex-1 py-1 text-[10px] font-bold rounded ${realWinner === 'home' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'}`}
+                    className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
+                      realWinner === 'home' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'
+                    } ${realHome !== realAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
                   >
                     Local
                   </button>
                   <button
                     type="button"
+                    disabled={realHome !== realAway}
                     onClick={() => setRealWinner('away')}
-                    className={`flex-1 py-1 text-[10px] font-bold rounded ${realWinner === 'away' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'}`}
+                    className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
+                      realWinner === 'away' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'
+                    } ${realHome !== realAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
                   >
                     Visitante
                   </button>
@@ -410,15 +434,21 @@ export default function RulesTab() {
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    disabled={predHome !== predAway}
                     onClick={() => setPredWinner('home')}
-                    className={`flex-1 py-1 text-[10px] font-bold rounded ${predWinner === 'home' ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-neutral-400'}`}
+                    className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
+                      predWinner === 'home' ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-neutral-400'
+                    } ${predHome !== predAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
                   >
                     Local
                   </button>
                   <button
                     type="button"
+                    disabled={predHome !== predAway}
                     onClick={() => setPredWinner('away')}
-                    className={`flex-1 py-1 text-[10px] font-bold rounded ${predWinner === 'away' ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-neutral-400'}`}
+                    className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
+                      predWinner === 'away' ? 'bg-emerald-600 text-white' : 'bg-neutral-900 text-neutral-400'
+                    } ${predHome !== predAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
                   >
                     Visitante
                   </button>
