@@ -96,3 +96,26 @@ Integrity mode: development
 - Iniciar sesión como un usuario regular, verificar que no se muestra la pestaña Admin.
 - Desbloquear un usuario de prueba en el panel Admin y confirmar que dicho usuario puede modificar su Parte 1, mientras que un usuario normal no puede y ve "Bloqueado".
 - Verificar que las predicciones del usuario desbloqueado no sean visibles para otros usuarios hasta que se bloquee de nuevo.
+
+## Follow-up — 2026-06-12T15:05:50-05:00
+
+Modificar el simulador de reglas y el algoritmo de cómputo de puntos del portal "La Polla" para incluir los goles anotados durante los 30 minutos del periodo suplementario (prórroga) en el cálculo de puntos por goles pronosticados cuando el partido va a prórroga tras un empate en los 90 minutos regulares (únicamente a partir de la ronda de 32 o eliminatorias).
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+
+## Requirements
+
+### R1. Actualizar el Simulador en la pestaña de Reglas
+Modificar RulesTab.tsx para que tanto el texto descriptivo como el cálculo de puntos y mensajes de desglose en el simulador incluyan los goles del periodo suplementario (prórroga) si se produce un empate.
+
+### R2. Verificar y asegurar la lógica en la base de datos (PostgreSQL)
+Asegurar que la función public.compute_points en calculate_points.sql considere los goles de los 120 minutos (tiempo regular + prórroga, excluyendo penales) al evaluar los aciertos de goles de los usuarios en partidos de fases eliminatorias.
+
+## Acceptance Criteria
+
+### Simulación
+- [ ] El simulador de la pestaña de reglas muestra un desglose de puntos que indica que los goles incluyen la prórroga (si aplica).
+- [ ] El texto de ayuda de la fase eliminatoria en el simulador especifica que se evalúan los goles anotados a los 120 minutos (regular + prórroga).
+
+### Base de Datos
+- [ ] La función compute_points procesa correctamente los goles finales (incluyendo prórroga) según lo registrado en la tabla matches para los partidos de eliminación.

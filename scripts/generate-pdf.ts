@@ -148,12 +148,12 @@ async function generate() {
 
   // SECCIÓN 3: FASES ELIMINATORIAS (KNOCKOUTS)
   y = 95;
-  doc.rect(40, y, doc.page.width - 80, 155).fill('#121212');
-  doc.rect(40, y, 4, 155).fill('#f59e0b'); // barra lateral dorada
+  doc.rect(40, y, doc.page.width - 80, 175).fill('#121212');
+  doc.rect(40, y, 4, 175).fill('#f59e0b'); // barra lateral dorada
   
   doc.fontSize(12).font('Helvetica-Bold').fillColor('#ffffff').text('3. FASES ELIMINATORIAS (KNOCKOUTS)', 60, y + 15);
   doc.fontSize(9.5).font('Helvetica').fillColor('#d1d5db').text(
-    'En los octavos, cuartos, semifinales y final, la lógica se adapta al tiempo reglamentario y la clasificación definitiva:',
+    'En los octavos, cuartos, semifinales y final, la lógica se adapta al tiempo de juego (incluyendo prórroga si aplica) y la clasificación:',
     60,
     y + 35,
     { width: 475 }
@@ -167,14 +167,14 @@ async function generate() {
   );
 
   doc.fontSize(9).font('Helvetica').fillColor('#9ca3af').text(
-    '• Goles en Tiempo Regular (90 min): Los goles se evalúan de acuerdo al marcador tras los 90 minutos regulares (más tiempo de adición, pero excluyendo prórrogas y penales). Acertar los goles del ganador real da +3 puntos, y del perdedor real da +2 puntos.',
+    '• Goles anotados (90 min / 120 min con Prórroga): A partir de la ronda de 32 (eliminatorias), si el partido finaliza empatado en los 90 minutos y va a prórroga, se incluirán los goles marcados durante los 30 minutos de prórroga en la evaluación de aciertos de goles (se excluyen penales). Si no va a prórroga, se evalúan sobre los 90 minutos regulares. Acertar goles del ganador real da +3 puntos, y del perdedor real da +2 puntos.',
     70,
     y + 105,
     { width: 455, lineGap: 2 }
   );
 
   // SECCIÓN 4: PARTE 1 (WIZARD) VS PARTE 2 (EN VIVO)
-  y = 270;
+  y = 285;
   doc.rect(40, y, doc.page.width - 80, 140).fill('#121212');
   doc.rect(40, y, 4, 140).fill('#10b981'); // barra lateral verde
   
@@ -201,7 +201,7 @@ async function generate() {
   );
 
   // SECCIÓN 5: PUNTOS DE BONUS DE CAMPEONES
-  y = 430;
+  y = 440;
   doc.rect(40, y, doc.page.width - 80, 110).fill('#121212');
   doc.rect(40, y, 4, 110).fill('#f59e0b'); // barra lateral dorada
   
@@ -223,41 +223,41 @@ async function generate() {
   doc.font('Helvetica').fillColor('#f3f4f6').text(' +2 puntos de bonus.');
 
   // Resumen final
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#ffffff').text('RESUMEN DE PUNTUACIONES MÁXIMAS POR PARTIDO', 40, 575);
+  doc.fontSize(11).font('Helvetica-Bold').fillColor('#ffffff').text('RESUMEN DE PUNTUACIONES MÁXIMAS POR PARTIDO', 40, 565);
   
   // Dibujar tabla de resumen
-  const tableY = 600;
+  const tableY = 590;
   doc.rect(40, tableY, 515, 20).fill('#1f1f1f');
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#ffffff');
   doc.text('TIPO DE ACIERTO', 50, tableY + 6);
   doc.text('FASE DE GRUPOS', 220, tableY + 6);
-  doc.text('ELIMINATORIAS (90 MIN + CLASIF.)', 350, tableY + 6);
+  doc.text('ELIMINATORIAS (TIEMPO DE JUEGO + CLASIF.)', 330, tableY + 6);
 
   // Fila 1: Resultado
   doc.rect(40, tableY + 20, 515, 20).fill('#121212');
   doc.fontSize(8.5).font('Helvetica').fillColor('#d1d5db');
   doc.text('Acertar Resultado / Clasificado', 50, tableY + 26);
   doc.text('+1 punto', 220, tableY + 26);
-  doc.text('+1 punto (el que avanza)', 350, tableY + 26);
+  doc.text('+1 punto (el que avanza)', 330, tableY + 26);
 
   // Fila 2: Goles Ganador
   doc.rect(40, tableY + 40, 515, 20).fill('#0a0a0a');
   doc.text('Acertar Goles del Ganador (o Local en Empate)', 50, tableY + 46);
   doc.text('+3 puntos', 220, tableY + 46);
-  doc.text('+3 puntos', 350, tableY + 46);
+  doc.text('+3 puntos', 330, tableY + 46);
 
   // Fila 3: Goles Perdedor
   doc.rect(40, tableY + 60, 515, 20).fill('#121212');
   doc.text('Acertar Goles del Perdedor (o Visitante en Empate)', 50, tableY + 66);
   doc.text('+2 puntos', 220, tableY + 66);
-  doc.text('+2 puntos', 350, tableY + 66);
+  doc.text('+2 puntos', 330, tableY + 66);
 
   // Fila 4: Total Máximo
   doc.rect(40, tableY + 80, 515, 20).fill('#1f2937');
   doc.font('Helvetica-Bold').fillColor('#ffffff');
   doc.text('TOTAL MÁXIMO POR PARTIDO', 50, tableY + 86);
   doc.text('6 Puntos', 220, tableY + 86);
-  doc.text('6 Puntos', 350, tableY + 86);
+  doc.text('6 Puntos', 330, tableY + 86);
 
   drawFooter(2, 2);
 

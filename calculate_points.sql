@@ -51,6 +51,17 @@ begin
     end if;
   end if;
 
+  -- Adjust actual scores for prediction comparison based on extra time rule
+  if (r_match.phase <> 'group') and (r_match.home_score_90 is not null) and (r_match.away_score_90 is not null) and (r_match.home_score_90 = r_match.away_score_90) then
+    -- Knockout match that went to extra time: compare against 120-minute score (home_score / away_score)
+    v_ah := r_match.home_score;
+    v_aa := r_match.away_score;
+  else
+    -- Otherwise compare against 90-minute score, falling back to home_score / away_score
+    v_ah := coalesce(r_match.home_score_90, r_match.home_score);
+    v_aa := coalesce(r_match.away_score_90, r_match.away_score);
+  end if;
+
   -- =====================================================================
   -- 2. CALCULAR PUNTOS PARA PARTE 2 ( phase_predictions - En vivo )
   -- =====================================================================
@@ -111,11 +122,11 @@ begin
         v_pts := 1; -- Acertar ganador definitivo
       end if;
 
-      -- Evaluar goles regular 90 min para el que avanzó
+      -- Evaluar goles regular 90 min (o 120 min con prórroga si empataron a los 90 min) para el que avanzó
       if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
         v_pts := v_pts + 3;
       end if;
-      -- Evaluar goles regular 90 min para el que fue eliminado
+      -- Evaluar goles regular 90 min (o 120 min con prórroga si empataron a los 90 min) para el que fue eliminado
       if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
         v_pts := v_pts + 2;
       end if;

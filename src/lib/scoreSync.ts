@@ -143,6 +143,17 @@ export async function syncRealScores() {
                               ? Number(apiMatch.score.fullTime.away)
                               : null;
 
+          // Check if apiMatch.score?.regularTime?.home is populated, if so store in home_score_90/away_score_90, else fallback to fullTime.
+          const hasRegularTime = (isFinished || isLive) &&
+                                 apiMatch.score?.regularTime?.home !== undefined &&
+                                 apiMatch.score?.regularTime?.home !== null;
+          const homeScore90 = hasRegularTime
+                              ? Number(apiMatch.score.regularTime.home)
+                              : homeScore;
+          const awayScore90 = hasRegularTime
+                              ? Number(apiMatch.score.regularTime.away)
+                              : awayScore;
+
           // Map home and away team IDs for knockouts if defined
           const homeTla = mapApiTlaToDbTla(apiMatch.homeTeam?.tla);
           const awayTla = mapApiTlaToDbTla(apiMatch.awayTeam?.tla);
@@ -167,7 +178,9 @@ export async function syncRealScores() {
 
           const statusChanged = dbMatch.status !== newStatus;
           const scoreChanged = (homeScore !== null && dbMatch.home_score !== homeScore) ||
-                               (awayScore !== null && dbMatch.away_score !== awayScore);
+                               (awayScore !== null && dbMatch.away_score !== awayScore) ||
+                               (homeScore90 !== null && dbMatch.home_score_90 !== homeScore90) ||
+                               (awayScore90 !== null && dbMatch.away_score_90 !== awayScore90);
           const winnerChanged = dbMatch.winner_team_id !== winnerId;
 
           if (teamChanged || statusChanged || scoreChanged || winnerChanged) {
@@ -181,6 +194,8 @@ export async function syncRealScores() {
             }
             if (homeScore !== null) updatePayload.home_score = homeScore;
             if (awayScore !== null) updatePayload.away_score = awayScore;
+            if (homeScore90 !== null) updatePayload.home_score_90 = homeScore90;
+            if (awayScore90 !== null) updatePayload.away_score_90 = awayScore90;
 
             console.log(`Updating match local ID ${dbMatch.id}:`, JSON.stringify(updatePayload));
             const { error: updateError } = await supabase
@@ -266,7 +281,10 @@ export async function syncRealScores() {
         if (dbMatch) {
           const teamChanged = dbMatch.home_team_id !== homeTla || dbMatch.away_team_id !== awayTla;
           const statusChanged = dbMatch.status !== newStatus;
-          const scoreChanged = dbMatch.home_score !== homeScore || dbMatch.away_score !== awayScore;
+          const scoreChanged = dbMatch.home_score !== homeScore ||
+                               dbMatch.away_score !== awayScore ||
+                               dbMatch.home_score_90 !== homeScore ||
+                               dbMatch.away_score_90 !== awayScore;
 
           if (teamChanged || statusChanged || scoreChanged) {
             let winnerId: string | null = null;
@@ -304,8 +322,14 @@ export async function syncRealScores() {
             if (homeTla) updatePayload.home_team_id = homeTla;
             if (awayTla) updatePayload.away_team_id = awayTla;
 
-            if (homeScore !== null) updatePayload.home_score = homeScore;
-            if (awayScore !== null) updatePayload.away_score = awayScore;
+            if (homeScore !== null) {
+              updatePayload.home_score = homeScore;
+              updatePayload.home_score_90 = homeScore;
+            }
+            if (awayScore !== null) {
+              updatePayload.away_score = awayScore;
+              updatePayload.away_score_90 = awayScore;
+            }
 
             console.log(`Actualizando partido local ID ${dbMatch.id}:`, JSON.stringify(updatePayload));
             const { error: updateError } = await supabase

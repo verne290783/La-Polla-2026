@@ -17,6 +17,8 @@ export default function RulesTab() {
   const [simPhase, setSimPhase] = useState<'group' | 'knockout'>('group');
   const [realHome, setRealHome] = useState<number>(2);
   const [realAway, setRealAway] = useState<number>(1);
+  const [realHomeEt, setRealHomeEt] = useState<number>(2);
+  const [realAwayEt, setRealAwayEt] = useState<number>(1);
   const [predHome, setPredHome] = useState<number>(2);
   const [predAway, setPredAway] = useState<number>(1);
   const [realWinner, setRealWinner] = useState<'home' | 'away'>('home');
@@ -26,8 +28,15 @@ export default function RulesTab() {
   useEffect(() => {
     if (realHome > realAway) {
       setRealWinner('home');
+      setRealHomeEt(realHome);
+      setRealAwayEt(realAway);
     } else if (realAway > realHome) {
       setRealWinner('away');
+      setRealHomeEt(realHome);
+      setRealAwayEt(realAway);
+    } else {
+      setRealHomeEt(realHome);
+      setRealAwayEt(realAway);
     }
   }, [realHome, realAway]);
 
@@ -113,24 +122,31 @@ export default function RulesTab() {
       const actualWinner = realWinner;
       const actualLoser = realWinner === 'home' ? 'away' : 'home';
 
-      // Goles en los 90 min del ganador real
-      const realWinnerScore = actualWinner === 'home' ? realHome : realAway;
+      const goesToExtraTime = realHome === realAway;
+      const targetHome = goesToExtraTime ? realHomeEt : realHome;
+      const targetAway = goesToExtraTime ? realAwayEt : realAway;
+      const labelSuffix = goesToExtraTime ? ' (incluyendo prórroga)' : ' en 90 min';
+
+      // Goles del ganador real
+      const realWinnerScore = actualWinner === 'home' ? targetHome : targetAway;
       const predWinnerScore = actualWinner === 'home' ? predHome : predAway;
       if (realWinnerScore === predWinnerScore) {
         pts += 3;
-        breakdown.push('+3 pts por goles en 90 min del Ganador');
+        breakdown.push(`+3 pts por goles${labelSuffix} del Ganador`);
       }
 
-      // Goles en los 90 min del perdedor real
-      const realLoserScore = actualLoser === 'home' ? realHome : realAway;
+      // Goles del perdedor real
+      const realLoserScore = actualLoser === 'home' ? targetHome : targetAway;
       const predLoserScore = actualLoser === 'home' ? predHome : predAway;
       if (realLoserScore === predLoserScore) {
         pts += 2;
-        breakdown.push('+2 pts por goles en 90 min del Perdedor');
+        breakdown.push(`+2 pts por goles${labelSuffix} del Perdedor`);
       }
 
       if (pts === 0) {
-        breakdown.push('0 pts: No acertaste el clasificado ni los goles en tiempo regular');
+        breakdown.push(goesToExtraTime
+          ? '0 pts: No acertaste el clasificado ni los goles con prórroga'
+          : '0 pts: No acertaste el clasificado ni los goles en tiempo regular');
       }
     }
 
@@ -203,14 +219,14 @@ export default function RulesTab() {
       color: 'gold',
       content: (
         <div className="space-y-3 text-neutral-300 text-xs leading-relaxed">
-          <p>En las rondas de eliminación directa (Knockouts), la lógica se divide entre el tiempo regular de juego y el clasificado definitivo:</p>
+          <p>En las rondas de eliminación directa (Knockouts), la lógica se divide entre el tiempo de juego (incluyendo prórroga si aplica) y el clasificado definitivo:</p>
           <ul className="space-y-2 pl-4 list-disc">
             <li><span className="text-amber-500 font-bold">+1 punto (Clasificado)</span>: Por acertar el equipo que avanza a la siguiente ronda, sin importar si lo logra en los 90 minutos, tiempo extra o mediante penales.</li>
-            <li><span className="text-emerald-400 font-bold">Goles en Tiempo Regular (90 min)</span>: Se evalúan los goles anotados en los 90 minutos de juego (más la adición). Se excluyen prórrogas y penales. Acertar goles del ganador da <strong className="text-emerald-400">+3 pts</strong> y del perdedor <strong className="text-emerald-400">+2 pts</strong>.</li>
+            <li><span className="text-emerald-400 font-bold">Goles anotados (90 min / 120 min con Prórroga)</span>: A partir de los dieciseisavos de final (ronda de 32 o eliminatorias), si el partido termina empatado en los 90 minutos y va a prórroga, los goles anotados en los 30 minutos de prórroga se incluirán en el cálculo de puntos para los goles predichos (los penales se excluyen). Si el partido se decide en los 90 minutos, se toman esos goles. Acertar goles del ganador da <strong className="text-emerald-400">+3 pts</strong> y del perdedor <strong className="text-emerald-400">+2 pts</strong>.</li>
           </ul>
           <div className="p-3 bg-neutral-900/80 border border-neutral-800 rounded-xl text-[11px]">
-            <strong className="text-white block mb-1">Ejemplo:</strong>
-            Si predices que avanza España empatando 1-1 con Alemania, y el partido real termina 1-1 en los 90 minutos y avanza España en penales, sumas: +1 por avance de España, +3 por goles del ganador de 90 min, +2 por goles del perdedor = <strong className="text-emerald-400">6 puntos</strong>.
+            <strong className="text-white block mb-1">Ejemplo con Prórroga:</strong>
+            Si predices que avanza España ganando 2-1, el partido real termina 1-1 en los 90 minutos y luego España gana 2-1 al final de la prórroga (120 minutos), se comparará tu predicción (2-1) contra el marcador final de la prórroga (2-1). Sumas: +1 por avance de España, +3 por goles del ganador, +2 por goles del perdedor = <strong className="text-emerald-400">6 puntos</strong>.
           </div>
         </div>
       )
@@ -373,31 +389,62 @@ export default function RulesTab() {
             </div>
 
             {simPhase === 'knockout' && (
-              <div className="mt-2.5 pt-2 border-t border-neutral-900">
-                <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block mb-1">Clasifica Real:</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={realHome !== realAway}
-                    onClick={() => setRealWinner('home')}
-                    className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
-                      realWinner === 'home' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'
-                    } ${realHome !== realAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
-                  >
-                    Local
-                  </button>
-                  <button
-                    type="button"
-                    disabled={realHome !== realAway}
-                    onClick={() => setRealWinner('away')}
-                    className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
-                      realWinner === 'away' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'
-                    } ${realHome !== realAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
-                  >
-                    Visitante
-                  </button>
+              <>
+                <div className="mt-2.5 pt-2 border-t border-neutral-900">
+                  <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block mb-1">Clasifica Real:</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={realHome !== realAway}
+                      onClick={() => setRealWinner('home')}
+                      className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
+                        realWinner === 'home' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'
+                      } ${realHome !== realAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
+                    >
+                      Local
+                    </button>
+                    <button
+                      type="button"
+                      disabled={realHome !== realAway}
+                      onClick={() => setRealWinner('away')}
+                      className={`flex-1 py-1 text-[10px] font-bold rounded transition ${
+                        realWinner === 'away' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400'
+                      } ${realHome !== realAway ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'}`}
+                    >
+                      Visitante
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                {realHome === realAway && (
+                  <div className="mt-2.5 pt-2 border-t border-neutral-900">
+                    <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider block mb-2">Goles tras Prórroga (120 min)</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-neutral-500">Local (ET)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={realHomeEt}
+                          onChange={(e) => setRealHomeEt(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-12 py-1 text-center bg-neutral-900 border border-neutral-800 rounded text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <span className="text-neutral-600 font-bold text-xs">vs</span>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-neutral-500">Visitante (ET)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={realAwayEt}
+                          onChange={(e) => setRealAwayEt(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-12 py-1 text-center bg-neutral-900 border border-neutral-800 rounded text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

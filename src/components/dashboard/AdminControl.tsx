@@ -12,8 +12,18 @@ interface MatchRowProps {
 }
 
 function MatchRow({ match, teams, onSave }: MatchRowProps) {
-  const [homeScore, setHomeScore] = useState<string>(match.home_score !== null ? match.home_score.toString() : '');
-  const [awayScore, setAwayScore] = useState<string>(match.away_score !== null ? match.away_score.toString() : '');
+  const [homeScore, setHomeScore] = useState<string>(
+    match.home_score_90 !== null && match.home_score_90 !== undefined
+      ? match.home_score_90.toString()
+      : (match.home_score !== null ? match.home_score.toString() : '')
+  );
+  const [awayScore, setAwayScore] = useState<string>(
+    match.away_score_90 !== null && match.away_score_90 !== undefined
+      ? match.away_score_90.toString()
+      : (match.away_score !== null ? match.away_score.toString() : '')
+  );
+  const [homeScoreEt, setHomeScoreEt] = useState<string>(match.home_score !== null ? match.home_score.toString() : '');
+  const [awayScoreEt, setAwayScoreEt] = useState<string>(match.away_score !== null ? match.away_score.toString() : '');
   const [status, setStatus] = useState<'scheduled' | 'live' | 'finished'>(match.status);
   const [winnerTeamId, setWinnerTeamId] = useState<string | null>(match.winner_team_id);
   const [saving, setSaving] = useState(false);
@@ -26,8 +36,16 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
 
   // React to parent data changes (e.g. after real API sync)
   useEffect(() => {
-    setHomeScore(match.home_score !== null ? match.home_score.toString() : '');
-    setAwayScore(match.away_score !== null ? match.away_score.toString() : '');
+    const hs90 = match.home_score_90 !== null && match.home_score_90 !== undefined
+      ? match.home_score_90.toString()
+      : (match.home_score !== null ? match.home_score.toString() : '');
+    const as90 = match.away_score_90 !== null && match.away_score_90 !== undefined
+      ? match.away_score_90.toString()
+      : (match.away_score !== null ? match.away_score.toString() : '');
+    setHomeScore(hs90);
+    setAwayScore(as90);
+    setHomeScoreEt(match.home_score !== null ? match.home_score.toString() : '');
+    setAwayScoreEt(match.away_score !== null ? match.away_score.toString() : '');
     setStatus(match.status);
     setWinnerTeamId(match.winner_team_id);
   }, [match]);
@@ -46,9 +64,23 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
         throw new Error('Marcador visitante inválido');
       }
 
+      const parsedHomeEt = homeScoreEt.trim() === '' ? null : parseInt(homeScoreEt, 10);
+      const parsedAwayEt = awayScoreEt.trim() === '' ? null : parseInt(awayScoreEt, 10);
+
+      if (homeScoreEt.trim() !== '' && isNaN(parsedHomeEt as number)) {
+        throw new Error('Marcador prórroga local inválido');
+      }
+      if (awayScoreEt.trim() !== '' && isNaN(parsedAwayEt as number)) {
+        throw new Error('Marcador prórroga visitante inválido');
+      }
+
+      const isDraw90 = isKnockout && parsedHome !== null && parsedAway !== null && parsedHome === parsedAway;
+
       await onSave(match.id, {
-        home_score: parsedHome,
-        away_score: parsedAway,
+        home_score_90: parsedHome,
+        away_score_90: parsedAway,
+        home_score: isDraw90 && parsedHomeEt !== null ? parsedHomeEt : parsedHome,
+        away_score: isDraw90 && parsedAwayEt !== null ? parsedAwayEt : parsedAway,
         status,
         winner_team_id: isKnockout ? winnerTeamId : null
       });
@@ -79,6 +111,8 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
   };
 
   const groupLetter = getMatchGroup(match);
+
+  const showExtraTime = isKnockout && homeScore.trim() !== '' && awayScore.trim() !== '' && parseInt(homeScore, 10) === parseInt(awayScore, 10);
 
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -141,6 +175,29 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
             className="w-12 h-9 bg-neutral-950 border border-neutral-800 rounded-lg text-center text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
           />
         </div>
+
+        {showExtraTime && (
+          <div className="flex items-center gap-2 border-l border-neutral-800 pl-4">
+            <span className="text-[10px] text-neutral-500 uppercase font-bold">Prórroga (120m):</span>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                value={homeScoreEt}
+                onChange={(e) => setHomeScoreEt(e.target.value)}
+                placeholder="-"
+                className="w-12 h-9 bg-neutral-950 border border-neutral-800 rounded-lg text-center text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
+              />
+              <span className="text-neutral-600 font-bold">-</span>
+              <input
+                type="number"
+                value={awayScoreEt}
+                onChange={(e) => setAwayScoreEt(e.target.value)}
+                placeholder="-"
+                className="w-12 h-9 bg-neutral-950 border border-neutral-800 rounded-lg text-center text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Estado */}
         <div>
@@ -277,6 +334,8 @@ export default function AdminControl() {
       .update({
         home_score: data.home_score,
         away_score: data.away_score,
+        home_score_90: data.home_score_90,
+        away_score_90: data.away_score_90,
         status: data.status,
         winner_team_id: data.winner_team_id
       })
