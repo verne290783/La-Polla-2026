@@ -313,6 +313,78 @@ async function runTests() {
     // If compilation succeeds, this test passes. We will run TS compiler in Tier 4/5.
   });
 
+  recordResult('TEST_M4_R1', 'Verify RulesTab registration in Dashboard and Landing page button & modal', 'Tier 3', () => {
+    // 1. Dashboard import & registration
+    const dashContent = fs.readFileSync(path.resolve(__dirname, '../src/app/dashboard/page.tsx'), 'utf8');
+    if (!/import\s+RulesTab\s+from\s+['"]@\/components\/dashboard\/RulesTab['"]/.test(dashContent)) {
+      throw new Error('RulesTab is not imported in src/app/dashboard/page.tsx');
+    }
+    if (!/id:\s*['"]rules['"]\s*,\s*label:\s*['"]Reglas['"]/.test(dashContent) && !/label:\s*['"]Reglas['"]\s*,\s*id:\s*['"]rules['"]/.test(dashContent)) {
+      throw new Error('RulesTab is not registered in the tabs array inside src/app/dashboard/page.tsx');
+    }
+    // 2. Landing page button & modal
+    const landingContent = fs.readFileSync(path.resolve(__dirname, '../src/app/page.tsx'), 'utf8');
+    if (!/import\s+RulesTab\s+from\s+['"]@\/components\/dashboard\/RulesTab['"]/.test(landingContent)) {
+      throw new Error('RulesTab is not imported in src/app/page.tsx');
+    }
+    if (!/setShowRules\(\s*true\s*\)/.test(landingContent) && !/showRules/i.test(landingContent)) {
+      throw new Error('Landing page does not manage showRules state');
+    }
+    if (!/<RulesTab\s*\/>/.test(landingContent)) {
+      throw new Error('Landing page does not render <RulesTab /> inside modal');
+    }
+  });
+
+  recordResult('TEST_M4_R2', 'Verify RulesTab sections and simulated scoring widget', 'Tier 3', () => {
+    const rulesContent = fs.readFileSync(path.resolve(__dirname, '../src/components/dashboard/RulesTab.tsx'), 'utf8');
+    
+    // Check accordion titles/sections
+    const expectedSections = ['Fase de Grupos', 'Empates', 'Eliminatorias', 'Wizard', 'En Vivo', 'Bonus'];
+    for (const section of expectedSections) {
+      if (!rulesContent.includes(section)) {
+        throw new Error(`RulesTab is missing Spanish rule section referring to: "${section}"`);
+      }
+    }
+
+    // Check simulated scoring widget
+    if (!rulesContent.includes('calculateSimulatedPoints')) {
+      throw new Error('RulesTab is missing the calculateSimulatedPoints function');
+    }
+    if (!rulesContent.includes('simPhase') || !rulesContent.includes('realHome') || !rulesContent.includes('predHome')) {
+      throw new Error('RulesTab is missing state variables for the simulator');
+    }
+    if (!rulesContent.includes('Simulador de Puntuación') && !rulesContent.includes('Simulador') && !rulesContent.includes('simulador')) {
+      throw new Error('RulesTab does not contain UI labels/titles for the simulated scoring widget');
+    }
+  });
+
+  recordResult('TEST_M4_R3', 'Verify Part 2 knockout draw tiebreaker integration in FixtureTab.tsx', 'Tier 3', () => {
+    const fixtureContent = fs.readFileSync(path.resolve(__dirname, '../src/components/dashboard/FixtureTab.tsx'), 'utf8');
+
+    // 1. State type maps winnerId
+    const hasWinnerIdInP2Preds = fixtureContent.includes('winnerId') && fixtureContent.includes('p2Preds');
+    if (!hasWinnerIdInP2Preds) {
+      throw new Error('p2Preds state does not seem to include winnerId in its type definition');
+    }
+
+    // 2. Predictions load winnerId
+    if (!fixtureContent.includes('winnerId: p.predicted_winner_team_id')) {
+      throw new Error('Predictions loading in FixtureTab does not load/map predicted_winner_team_id to winnerId');
+    }
+
+    // 3. Winner selection buttons render for draw scores in knockout matches
+    if (!fixtureContent.includes("handleP2WinnerChange(match.id, match.home_team_id)") || 
+        !fixtureContent.includes("handleP2WinnerChange(match.id, match.away_team_id)")) {
+      throw new Error('Winner selection buttons for draw scores in knockout matches are not rendered correctly in Part 2');
+    }
+
+    // 4. Save logic blocks saving unless a winner is selected for draws
+    if (!fixtureContent.includes('!pred.winnerId') || !fixtureContent.includes('alert')) {
+      throw new Error('Save logic does not block saving for draws unless a winner is selected');
+    }
+  });
+
+
 
   // TIER 4 - Real-World Application Scenarios / BUILD & LINT checks
   let lintSuccess = false;

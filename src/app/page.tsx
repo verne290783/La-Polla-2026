@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import RulesTab from '@/components/dashboard/RulesTab';
 
 export default function Home() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function Home() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [showRules, setShowRules] = useState(false);
 
   // Verificar si ya está logueado para redirigir
   useEffect(() => {
@@ -203,6 +205,17 @@ export default function Home() {
           </button>
         </form>
 
+        {/* ENLACE PÚBLICO A REGLAS DEL TORNEO */}
+        <div className="mt-5 pt-4 border-t border-neutral-800/60 text-center">
+          <button
+            type="button"
+            onClick={() => setShowRules(true)}
+            className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 hover:underline transition duration-200 flex items-center justify-center gap-1.5 mx-auto"
+          >
+            📋 Ver Reglas del Torneo
+          </button>
+        </div>
+
         {/* Nota */}
         <p className="mt-6 text-[10px] text-neutral-500 leading-relaxed">
           Usa tu correo y contraseña para crear o ingresar a tu cuenta. Los datos se almacenan de forma segura en Supabase.
@@ -212,6 +225,43 @@ export default function Home() {
       <footer className="absolute bottom-6 text-xs text-neutral-600 font-medium tracking-wide">
         MUNDIAL FIFA 2026 — MÉXICO, CANADÁ Y USA
       </footer>
+
+      {/* MODAL DE REGLAS */}
+      {showRules && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-hidden animate-fadeIn">
+          <div className="relative w-full max-w-2xl max-h-[85vh] bg-[#121212] border border-neutral-800/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900/40">
+              <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                🏆 Reglamento y Puntos La Polla
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowRules(false)}
+                className="text-neutral-400 hover:text-white text-lg font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-800/50 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Contenido (Scrollable) */}
+            <div className="overflow-y-auto p-6 flex-1">
+              <RulesTab />
+            </div>
+
+            {/* Footer del Modal */}
+            <div className="px-6 py-4 border-t border-neutral-800 bg-neutral-900/40 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowRules(false)}
+                className="px-5 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition duration-200"
+              >
+                Entendido / Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

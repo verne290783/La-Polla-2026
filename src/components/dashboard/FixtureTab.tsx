@@ -54,7 +54,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
   const [activeGroupWizard, setActiveGroupWizard] = useState<'A'|'B'|'C'|'D'|'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'>('A');
 
   // Parte 2 Live Predictions Feed State
-  const [p2Preds, setP2Preds] = useState<Record<number, { homeScore: number | ''; awayScore: number | '' }>>({});
+  const [p2Preds, setP2Preds] = useState<Record<number, { homeScore: number | ''; awayScore: number | ''; winnerId?: string | null }>>({});
   const [submittingMatchId, setSubmittingMatchId] = useState<number | null>(null);
 
   // Countdown timer for P2
@@ -189,11 +189,12 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
       setP1KoPreds(koPredsLocal);
 
       // --- Cargar Parte 2 ---
-      const p2PredsLocal: Record<number, { homeScore: number | ''; awayScore: number | '' }> = {};
+      const p2PredsLocal: Record<number, { homeScore: number | ''; awayScore: number | ''; winnerId?: string | null }> = {};
       p2PredsList.forEach(p => {
         p2PredsLocal[p.match_id] = {
           homeScore: p.predicted_home_score,
-          awayScore: p.predicted_away_score
+          awayScore: p.predicted_away_score,
+          winnerId: p.predicted_winner_team_id
         };
       });
       setP2Preds(p2PredsLocal);
@@ -620,13 +621,27 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
   const handleP2ScoreChange = (matchId: number, side: 'home' | 'away', val: string) => {
     const num = val === '' ? '' : Math.max(0, parseInt(val, 10));
     if (num !== '' && isNaN(num)) return;
-    setP2Preds(prev => ({
-      ...prev,
-      [matchId]: {
-        ...(prev[matchId] || { homeScore: 0, awayScore: 0 }),
+    setP2Preds(prev => {
+      const current = prev[matchId] || { homeScore: 0, awayScore: 0 };
+      const updated = {
+        ...current,
         [side === 'home' ? 'homeScore' : 'awayScore']: num
+      };
+
+      const homeVal = side === 'home' ? num : current.homeScore;
+      const awayVal = side === 'away' ? num : current.awayScore;
+      const homeSanitized = homeVal === '' ? 0 : homeVal;
+      const awaySanitized = awayVal === '' ? 0 : awayVal;
+
+      if (homeSanitized !== awaySanitized) {
+        delete updated.winnerId;
       }
-    }));
+
+      return {
+        ...prev,
+        [matchId]: updated
+      };
+    });
   };
 
   const handleP2Blur = (matchId: number, side: 'home' | 'away') => {
@@ -645,6 +660,21 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     });
   };
 
+  const handleP2WinnerChange = (matchId: number, winnerId: string) => {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+    const isLocked = new Date().getTime() >= new Date(match.lock_time_part2).getTime();
+    if (isLocked) return;
+
+    setP2Preds(prev => ({
+      ...prev,
+      [matchId]: {
+        ...(prev[matchId] || { homeScore: 0, awayScore: 0 }),
+        winnerId
+      }
+    }));
+  };
+
   const handleP2Save = async (matchId: number) => {
     const match = matches.find(m => m.id === matchId);
     if (!match) return;
@@ -660,20 +690,23 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     const homeSanitized = pred.homeScore === '' ? 0 : pred.homeScore;
     const awaySanitized = pred.awayScore === '' ? 0 : pred.awayScore;
 
+    let winner: string | null = null;
+    if (match.phase !== 'group') {
+      if (homeSanitized > awaySanitized) {
+        winner = match.home_team_id;
+      } else if (awaySanitized > homeSanitized) {
+        winner = match.away_team_id;
+      } else {
+        if (!pred.winnerId) {
+          alert('Por favor selecciona qué equipo avanza/gana por penales.');
+          return;
+        }
+        winner = pred.winnerId;
+      }
+    }
+
     setSubmittingMatchId(matchId);
     try {
-      let winner: string | null = null;
-      if (match.phase !== 'group') {
-        if (homeSanitized > awaySanitized) {
-          winner = match.home_team_id;
-        } else if (awaySanitized > homeSanitized) {
-          winner = match.away_team_id;
-        } else {
-          // En caso de empate en knockout real, por defecto asignar home_team, el usuario puede ajustarlo
-          winner = match.home_team_id;
-        }
-      }
-
       await saveP2Prediction(userId, selectedPoolId, matchId, homeSanitized, awaySanitized, winner);
       alert('Predicción guardada.');
     } catch (err: any) {
@@ -1672,6 +1705,9 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                         {phaseMatches.map(match => {
                           const mDate = new Date(match.match_date);
                           const pred = p2Preds[match.id] || { homeScore: 0, awayScore: 0 };
+                          const homeSanitized = pred.homeScore === '' ? 0 : pred.homeScore;
+                          const awaySanitized = pred.awayScore === '' ? 0 : pred.awayScore;
+                          const isDraw = homeSanitized === awaySanitized;
                           const isLocked = new Date().getTime() >= new Date(match.lock_time_part2).getTime();
                           const isLive = match.status === 'live';
                           const isFinished = match.status === 'finished';
@@ -1770,6 +1806,38 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                   </span>
                                 </div>
                               </div>
+
+                              {match.phase !== 'group' && match.home_team_id && match.away_team_id && isDraw && (
+                                <div className="mt-3 flex flex-col items-center gap-1.5 p-2 bg-amber-500/5 border border-amber-500/20 rounded-lg text-[10px] animate-fadeIn">
+                                  <span className="text-amber-500 font-bold uppercase">Empate — ¿Quién avanza por penales?</span>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      disabled={isLocked}
+                                      onClick={() => handleP2WinnerChange(match.id, match.home_team_id)}
+                                      className={`px-3 py-1 rounded font-bold transition ${
+                                        pred.winnerId === match.home_team_id 
+                                          ? 'bg-amber-500 text-neutral-950' 
+                                          : 'bg-neutral-800 text-neutral-400 hover:text-white disabled:opacity-50'
+                                      }`}
+                                    >
+                                      {match.home_team_id}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isLocked}
+                                      onClick={() => handleP2WinnerChange(match.id, match.away_team_id)}
+                                      className={`px-3 py-1 rounded font-bold transition ${
+                                        pred.winnerId === match.away_team_id 
+                                          ? 'bg-amber-500 text-neutral-950' 
+                                          : 'bg-neutral-800 text-neutral-400 hover:text-white disabled:opacity-50'
+                                      }`}
+                                    >
+                                      {match.away_team_id}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Footer Card */}
                               <div className="flex justify-between items-center border-t border-neutral-900/60 pt-3.5 mt-4 text-[10px] text-neutral-500">
