@@ -64,6 +64,11 @@ export default function Dashboard() {
         const prof = await getProfile(authUser.id);
         setProfile(prof);
 
+        // Pestaña inicial para administradores
+        if (prof?.email === 'ehdiazs@gmail.com' || prof?.is_admin === true) {
+          setActiveTab('admin');
+        }
+
       } catch (err) {
         console.error('Error inicializando el Dashboard:', err);
       } finally {
