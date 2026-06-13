@@ -171,3 +171,37 @@ Confirmar que todos los archivos modificados sean subidos a la rama principal (`
 - [ ] Cuando todos los partidos activos pasan a `'finished'`, el Dashboard detiene y limpia el polling automáticamente.
 - [ ] Todas las comparaciones de fecha son consistentes con zonas horarias y el frontend muestra la hora de Bogotá.
 - [ ] Todos los cambios se confirman en Git y se suben a GitHub.
+
+## Follow-up — 2026-06-12T18:17:20-05:00
+
+Corregir el error de asignación de puntos en la Parte 1 para partidos que aún no se han jugado (programados), modificando la lógica de cálculo de la base de datos para limpiar los puntos ganados de partidos `'scheduled'` y actualizando el trigger de base de datos para que sea auto-sanable y responda a cualquier cambio de estado o marcador. Sin dañar un solo dato de las predicciones de los usuarios.
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Modificar la función `public.compute_points` ([calculate_points.sql](file:///c:/Users/Edison/Desktop/LaPolla/calculate_points.sql))
+* Añadir una validación al inicio de la función: si el partido tiene estado `'scheduled'`, establecer `points_earned = null` para ese partido en las tablas `phase_predictions` (Parte 2) y `full_tournament_predictions` (Parte 1).
+* Dejar que el flujo continúe hasta el final para que se recalculen y actualicen de forma correcta los totales acumulados en `pool_members` y `profiles` (restando los puntos inválidos).
+* Garantizar que no se alteren ni eliminen los datos originales de las predicciones de goles (`predicted_home_score`, `predicted_away_score`, etc.) de los usuarios.
+
+### R2. Actualizar el Trigger `tr_calculate_points` ([calculate_points.sql](file:///c:/Users/Edison/Desktop/LaPolla/calculate_points.sql))
+* Redefinir la función del trigger (`calculate_points_on_match_finish()`) para que se ejecute siempre que ocurra un cambio en los campos: `status`, `home_score`, `away_score`, `home_score_90`, `away_score_90`, o `winner_team_id`.
+* Esto garantizará que, si un script de prueba o administrador restablece un partido a `'scheduled'`, la base de datos limpiará automáticamente los puntos correspondientes de forma inmediata.
+
+### R3. Recálculo y Limpieza Masiva en la Base de Datos
+* Ejecutar una migración o comando SQL que aplique la nueva versión de `calculate_points.sql` y ejecute `SELECT public.compute_points(id) FROM public.matches;` para todos los 104 partidos.
+* Esto limpiará los puntos incorrectos de los partidos no jugados (como Match #3 y Match #21) y restablecerá la clasificación acumulada de todos los usuarios a sus valores reales correctos (reflejando únicamente los 3 partidos realmente jugados hasta el momento).
+
+### R4. Subir Cambios a GitHub
+Confirmar que todos los archivos modificados sean subidos a la rama principal (`origin/main`) mediante Git.
+
+## Acceptance Criteria
+
+### Integridad de Puntuación
+- [ ] La función `compute_points` restablece a `NULL` los puntos de partidos con estado `'scheduled'`.
+- [ ] El trigger `tr_calculate_points` se activa ante cualquier cambio en el estado o marcadores del partido (incluyendo la reversión a `'scheduled'`).
+- [ ] Después de ejecutar la limpieza masiva, los partidos no jugados (ej. Match #3 y Match #21) tienen `Points: null` en `full_tournament_predictions`.
+- [ ] La clasificación de todos los usuarios en el leaderboard refleja de forma exacta únicamente los 3 partidos realmente jugados.
+- [ ] Todos los cambios se confirman en Git y se suben a GitHub.
