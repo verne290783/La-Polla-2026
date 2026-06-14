@@ -205,3 +205,50 @@ Confirmar que todos los archivos modificados sean subidos a la rama principal (`
 - [ ] Después de ejecutar la limpieza masiva, los partidos no jugados (ej. Match #3 y Match #21) tienen `Points: null` en `full_tournament_predictions`.
 - [ ] La clasificación de todos los usuarios en el leaderboard refleja de forma exacta únicamente los 3 partidos realmente jugados.
 - [ ] Todos los cambios se confirman en Git y se suben a GitHub.
+
+## Follow-up — 2026-06-14T17:46:46Z
+
+Implement a secure password reset system for the tournament portal. Administrators will be able to set or auto-generate a temporary password for any user from the Admin panel, and logged-in users will be able to change their password to a definitive one from their Profile tab.
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Admin Password Reset Interface
+- Add a "Restablecer Contraseña" button for each user row in the "Usuarios" tab of the Admin panel (src/components/dashboard/AdminControl.tsx).
+- Clicking this button must open a modal/dialog showing a secure auto-generated temporary password (e.g., `Polla-XXXX` where `XXXX` is random digits/characters) and a "Copiar" button.
+- The administrator must be able to edit this temporary password before confirming.
+- Confirming the modal triggers a request to `/api/admin/reset-password` with the target `userId` and the `newPassword`.
+
+### R2. Secure Admin API Endpoint
+- Create a Next.js API route at `src/app/api/admin/reset-password/route.ts`.
+- The endpoint must verify that the requesting user is authenticated and is an administrator (either has email `ehdiazs@gmail.com` or `is_admin === true` in the `profiles` table). If not, return a `403 Forbidden` response.
+- If authorized, use a Supabase client initialized with the server-side `SUPABASE_SERVICE_ROLE_KEY` to update the target user's password in Supabase Auth via `supabase.auth.admin.updateUserById`.
+- Ensure proper error handling and return JSON success/error responses.
+
+### R3. User Password Change in Profile
+- Add a "Cambiar Contraseña" section in the user's Profile tab (src/components/dashboard/ProfileTab.tsx).
+- It must present input fields for the new password and a confirmation of the new password.
+- Validate that the password is at least 6 characters.
+- Clicking "Actualizar" updates the current user's password using the client-side Supabase authentication (`supabase.auth.updateUser({ password: newPassword })`).
+- Show success/error toast notifications or messages inline.
+
+### R4. Design and Styling Integration
+- All new UI elements (buttons, modals, input fields, and alerts) must match the existing styling tokens (colors, dark mode theme, typography, glassmorphism, border classes) of the Next.js/Tailwind CSS project.
+
+## Acceptance Criteria
+
+### Administrative Reset
+- [ ] A "Restablecer Contraseña" button is displayed for each user in the admin table.
+- [ ] Clicking the button displays a modal with an auto-generated temporary password, a copy button, and a confirmation button.
+- [ ] Confirming the reset triggers a POST request to `/api/admin/reset-password`.
+- [ ] The `/api/admin/reset-password` API route rejects unauthorized or non-admin requests with 403 Forbidden.
+- [ ] The API route successfully updates the user's password in Supabase Auth when invoked by a valid admin.
+
+### User Password Change
+- [ ] A "Cambiar Contraseña" form is added to the Profile tab.
+- [ ] The form prevents submission and shows validation errors if the password is less than 6 characters or if the passwords do not match.
+- [ ] Submitting the form successfully calls the Supabase SDK client method `auth.updateUser` to update the logged-in user's password.
+- [ ] Clear success/error messages are shown on success or failure.
+

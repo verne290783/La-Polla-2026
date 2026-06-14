@@ -277,6 +277,53 @@ export default function AdminControl() {
   const [recalcLoading, setRecalcLoading] = useState(false);
   const [recalcSuccess, setRecalcSuccess] = useState<string | null>(null);
 
+  // Estados de restablecimiento de contraseña
+  const [resettingUser, setResettingUser] = useState<any | null>(null);
+  const [tempPassword, setTempPassword] = useState<string>('');
+  const [resetLoading, setResetLoading] = useState<boolean>(false);
+  const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const generateTempPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let randomPart = '';
+    for (let i = 0; i < 6; i++) {
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `Polla-${randomPart}`;
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!resettingUser || tempPassword.length < 6) return;
+    setResetLoading(true);
+    setResetMessage(null);
+    try {
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: resettingUser.id,
+          newPassword: tempPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al restablecer la contraseña.');
+      }
+
+      setResetMessage({ type: 'success', text: 'Contraseña restablecida correctamente.' });
+      setTimeout(() => {
+        setResettingUser(null);
+      }, 2000);
+    } catch (err: any) {
+      setResetMessage({ type: 'error', text: err.message });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   useEffect(() => {
     async function checkAdminAndLoad() {
       try {
@@ -648,6 +695,17 @@ export default function AdminControl() {
                             >
                               Bloquear
                             </button>
+                            <button
+                              onClick={() => {
+                                setResettingUser(u);
+                                setTempPassword(generateTempPassword());
+                                setResetMessage(null);
+                                setResetLoading(false);
+                              }}
+                              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-[10px] font-bold transition"
+                            >
+                              Restablecer Contraseña
+                            </button>
                           </td>
                         </tr>
                       );
@@ -744,6 +802,90 @@ export default function AdminControl() {
           </div>
         )}
       </div>
+
+      {/* Modal Restablecer Contraseña */}
+      {resettingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Restablecer Contraseña
+              </h3>
+              <button
+                onClick={() => setResettingUser(null)}
+                className="text-neutral-400 hover:text-white transition text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div>
+              <p className="text-xs text-neutral-400">
+                Estás restableciendo la contraseña del usuario{' '}
+                <strong className="text-white">{resettingUser.display_name}</strong> ({resettingUser.email}).
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] uppercase font-bold text-neutral-400">
+                Contraseña Temporal
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tempPassword}
+                  onChange={(e) => setTempPassword(e.target.value)}
+                  className="flex-1 h-9 px-3 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(tempPassword);
+                    alert('Copiado al portapapeles');
+                  }}
+                  className="px-3 h-9 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs font-bold transition flex items-center justify-center"
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+
+            {resetMessage && (
+              <div
+                className={`p-3 rounded-lg text-xs font-bold border ${
+                  resetMessage.type === 'success'
+                    ? 'bg-emerald-950/30 border-emerald-500/20 text-emerald-400'
+                    : 'bg-red-950/30 border-red-500/20 text-red-400'
+                }`}
+              >
+                {resetMessage.text}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setResettingUser(null)}
+                disabled={resetLoading}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs font-bold transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmResetPassword}
+                disabled={resetLoading || tempPassword.length < 6}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+              >
+                {resetLoading && (
+                  <span className="w-3.5 h-3.5 border-2 border-t-transparent border-white rounded-full animate-spin" />
+                )}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
