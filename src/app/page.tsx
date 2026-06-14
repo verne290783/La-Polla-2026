@@ -194,6 +194,13 @@ export default function Home() {
               minLength={6}
               className="w-full px-4 py-3 rounded-xl bg-neutral-900/60 border border-neutral-800 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500/50 transition"
             />
+            {!isSignUp && (
+              <div className="mt-2 text-right">
+                <span className="text-[10px] text-amber-400/90 font-semibold tracking-wide bg-amber-950/30 border border-amber-500/15 px-3 py-1.5 rounded-xl inline-flex items-center gap-1.5 backdrop-blur-sm shadow-sm select-none">
+                  🔑 Si olvidaste tu contraseña, contacta al administrador para restablecerla.
+                </span>
+              </div>
+            )}
           </div>
 
           <button
