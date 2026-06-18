@@ -260,3 +260,11 @@ export async function getPoolMemberInfo(userId: string, poolId: string) {
   if (error) throw error;
   return data;
 }
+
+// 15. Obtener hora de la aplicación (Virtual o Real)
+export async function getAppTime() {
+  const { data, error } = await supabase.rpc('get_app_time');
+  if (error) throw error;
+  return data as string;
+}
+

@@ -10,7 +10,8 @@ import {
   getP2Predictions, 
   saveP2Prediction,
   getUserPools,
-  getProfile
+  getProfile,
+  getAppTime
 } from '@/lib/db-helpers';
 import { LOCK_PART1_DATE } from '@/lib/fifa/state';
 import TeamFlag from '@/components/common/TeamFlag';
@@ -27,9 +28,7 @@ interface FixtureTabProps {
 }
 
 const getUserP1LockDate = (uid: string) => {
-  if (uid === '2a1f732f-fc90-4e93-830a-0cd8fcbf0c9f') {
-    return new Date('2026-06-12T01:00:00Z'); // Límite de Ricardo (1h antes del partido #2)
-  }
+  void uid;
   return LOCK_PART1_DATE; // Límite general
 };
 
@@ -51,6 +50,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
   const [p1KoPreds, setP1KoPreds] = useState<Record<string, { homeScore: number | ''; awayScore: number | ''; winnerId?: string }>>({});
   const [p1Locked, setP1Locked] = useState(false);
   const [p1UnlockedUntil, setP1UnlockedUntil] = useState<string | null>(null);
+  const [timeOffset, setTimeOffset] = useState<number>(0);
   const [activeGroupWizard, setActiveGroupWizard] = useState<'A'|'B'|'C'|'D'|'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'>('A');
 
   // Parte 2 Live Predictions Feed State
@@ -94,7 +94,7 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
     const interval = setInterval(() => {
       const remaining: Record<number, string> = {};
-      const vTime = new Date().getTime();
+      const vTime = Date.now() + timeOffset;
       
       // Bloqueo en tiempo real de la Parte 1 al llegar a la hora límite
       const isPastP1Limit = vTime >= getUserP1LockDate(userId).getTime();
@@ -104,6 +104,8 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
           if (!prev) return true;
           return prev;
         });
+      } else if (isUnlocked || !isPastP1Limit) {
+        setP1Locked(false);
       }
       
       matches.forEach(m => {
@@ -122,20 +124,24 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [matches, userId, p1UnlockedUntil]);
+  }, [matches, userId, p1UnlockedUntil, timeOffset]);
 
   async function loadData(poolId: string) {
     try {
       setLoading(true);
 
-      const [allMatches, allTeams, p1PredsList, p1Champ, p2PredsList, userProfile] = await Promise.all([
+      const [allMatches, allTeams, p1PredsList, p1Champ, p2PredsList, userProfile, dbAppTime] = await Promise.all([
         getMatches(),
         getTeams(),
         getP1Predictions(userId, poolId),
         getChampionPrediction(userId, poolId),
         getP2Predictions(userId, poolId),
-        getProfile(userId)
+        getProfile(userId),
+        getAppTime()
       ]);
+
+      const offset = new Date(dbAppTime).getTime() - Date.now();
+      setTimeOffset(offset);
 
       const unlockedTime = userProfile?.p1_unlocked_until || null;
       setP1UnlockedUntil(unlockedTime);
@@ -151,10 +157,11 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
 
       // --- Cargar Parte 1 ---
       // Si el mundial ya empezó de forma real o ya existe una predicción del campeón, bloquear
-      const isPastP1Limit = new Date().getTime() >= getUserP1LockDate(userId).getTime();
+      const vTime = Date.now() + offset;
+      const isPastP1Limit = vTime >= getUserP1LockDate(userId).getTime();
       const hasLockedP1 = p1Champ !== null && p1Champ.is_locked === true;
       
-      const isUnlocked = unlockedTime && new Date(unlockedTime).getTime() > new Date().getTime();
+      const isUnlocked = unlockedTime && new Date(unlockedTime).getTime() > vTime;
       if (isUnlocked) {
         setP1Locked(false);
       } else {
@@ -823,7 +830,13 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                   🔓 PREDICCIÓN ABIERTA
                 </span>
               )}
-              <span className="text-[10px] text-neutral-500 mt-1.5">Límite: 11 de Junio, 3:00 PM (Hora de Bogotá)</span>
+              {p1UnlockedUntil !== null && new Date(p1UnlockedUntil).getTime() > (Date.now() + timeOffset) ? (
+                <span className="text-[10px] text-emerald-400 font-semibold mt-1.5">
+                  🔓 Desbloqueo temporal activo hasta: {new Date(p1UnlockedUntil).toLocaleString('es-CO', { timeZone: 'America/Bogota' })}
+                </span>
+              ) : (
+                <span className="text-[10px] text-neutral-500 mt-1.5">Límite: 11 de Junio, 3:00 PM (Hora de Bogotá)</span>
+              )}
             </div>
           </div>
 

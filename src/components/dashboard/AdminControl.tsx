@@ -259,6 +259,7 @@ export default function AdminControl() {
 
   // Carga e inicialización
   const [loading, setLoading] = useState(true);
+  const [timeOffset, setTimeOffset] = useState<number>(0);
 
   // Datos de Partidos
   const [matches, setMatches] = useState<any[]>([]);
@@ -344,6 +345,14 @@ export default function AdminControl() {
         setIsAdmin(userIsAdmin);
 
         if (userIsAdmin) {
+          // Fetch app time
+          const { data: appTime } = await supabase.rpc('get_app_time');
+          let offset = 0;
+          if (appTime) {
+            offset = new Date(appTime).getTime() - Date.now();
+          }
+          setTimeOffset(offset);
+
           // Cargar datos iniciales
           await Promise.all([loadMatchesAndTeams(), loadUsers()]);
         }
@@ -518,9 +527,11 @@ export default function AdminControl() {
   const getUnlockStatus = (profile: any) => {
     if (!profile.p1_unlocked_until) return { label: 'Locked', isUnlocked: false };
     const dateLimit = new Date(profile.p1_unlocked_until).getTime();
-    const isUnlocked = dateLimit > Date.now();
+    const isUnlocked = dateLimit > (Date.now() + timeOffset);
     return {
-      label: isUnlocked ? `Unlocked (Until ${new Date(profile.p1_unlocked_until).toLocaleString()})` : 'Locked',
+      label: isUnlocked 
+        ? `Unlocked (Until ${new Date(profile.p1_unlocked_until).toLocaleString('es-CO', { timeZone: 'America/Bogota' })})` 
+        : 'Locked',
       isUnlocked
     };
   };

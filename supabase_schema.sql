@@ -212,14 +212,38 @@ create table public.champion_predictions (
 -- Trigger para crear perfil de usuario automáticamente tras su registro
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  v_app_time timestamp with time zone;
+  v_knockout_kickoff timestamp with time zone;
+  v_p1_unlocked_until timestamp with time zone;
 begin
-  insert into public.profiles (id, email, display_name, avatar_url, is_admin)
+  v_app_time := public.get_app_time();
+  
+  select min(match_date) into v_knockout_kickoff
+  from public.matches
+  where phase <> 'group';
+
+  if v_knockout_kickoff is null then
+    v_knockout_kickoff := '2026-06-28 19:00:00+00'::timestamp with time zone;
+  end if;
+
+  if v_app_time >= '2026-06-11T20:00:00Z'::timestamp with time zone and v_app_time < v_knockout_kickoff then
+    v_p1_unlocked_until := v_app_time + interval '24 hours';
+    if v_p1_unlocked_until > v_knockout_kickoff then
+      v_p1_unlocked_until := v_knockout_kickoff;
+    end if;
+  else
+    v_p1_unlocked_until := null;
+  end if;
+
+  insert into public.profiles (id, email, display_name, avatar_url, is_admin, p1_unlocked_until)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
     new.raw_user_meta_data->>'avatar_url',
-    case when new.email = 'ehdiazs@gmail.com' then true else false end
+    case when new.email = 'ehdiazs@gmail.com' then true else false end,
+    v_p1_unlocked_until
   );
   return new;
 end;

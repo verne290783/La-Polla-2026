@@ -19,9 +19,7 @@ interface LeaderboardTabProps {
 }
 
 const getUserP1LockDate = (uid: string) => {
-  if (uid === '2a1f732f-fc90-4e93-830a-0cd8fcbf0c9f') {
-    return new Date('2026-06-12T01:00:00Z');
-  }
+  void uid;
   return LOCK_PART1_DATE;
 };
 
