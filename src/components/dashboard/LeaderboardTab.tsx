@@ -13,6 +13,7 @@ import {
 } from '@/lib/db-helpers';
 import { LOCK_PART1_DATE } from '@/lib/fifa/state';
 import TeamFlag from '@/components/common/TeamFlag';
+import { calculateUserStats } from '@/lib/stats-helpers';
 
 interface LeaderboardTabProps {
   currentUserId: string;
@@ -33,6 +34,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
   // Modal States
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
+  const [modalTab, setModalTab] = useState<'stats' | 'predictions'>('stats');
   const [modalP1Prediction, setModalP1Prediction] = useState<any | null>(null);
   const [modalP1Predictions, setModalP1Predictions] = useState<any[]>([]);
   const [modalP2Predictions, setModalP2Predictions] = useState<any[]>([]);
@@ -66,8 +68,9 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
   }, []);
 
   // Handle open modal and determine poolId
-  const handleUserClick = async (targetUser: any) => {
+  const handleUserClick = async (targetUser: any, defaultTab: 'stats' | 'predictions' = 'stats') => {
     setSelectedUser(targetUser);
+    setModalTab(defaultTab);
     setModalLoading(true);
     setUserHasNoPools(false);
     try {
@@ -327,18 +330,22 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
 
                       {/* Usuario */}
                       <td className="px-6 py-4 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-900/40 border border-emerald-500/20 flex items-center justify-center font-bold text-xs text-emerald-400 overflow-hidden shadow-inner">
+                        <button
+                          onClick={() => handleUserClick(row, 'stats')}
+                          className="w-8 h-8 rounded-full bg-emerald-900/40 border border-emerald-500/20 flex items-center justify-center font-bold text-xs text-emerald-400 overflow-hidden shadow-inner hover:border-emerald-400 hover:scale-105 transition duration-150 cursor-pointer focus:outline-none"
+                          title="Ver estadísticas"
+                        >
                           {row.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={row.avatar_url} alt={row.display_name} className="w-full h-full object-cover" />
                           ) : (
                             row.display_name?.charAt(0).toUpperCase() || 'P'
                           )}
-                        </div>
+                        </button>
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center min-w-0">
                             <button
-                              onClick={() => handleUserClick(row)}
+                              onClick={() => handleUserClick(row, 'predictions')}
                               className="font-semibold text-left truncate max-w-[150px] md:max-w-none hover:text-emerald-400 hover:underline cursor-pointer focus:outline-none transition duration-150"
                             >
                               {row.display_name || row.email}
@@ -410,18 +417,20 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
               {modalLoading ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
-                  <p className="text-neutral-400 text-sm">Cargando predicciones...</p>
+                  <p className="text-neutral-400 text-sm">Cargando datos...</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   {/* Header */}
-                  <div>
-                    <h3 className="text-xl font-black text-white">
-                      Predicciones de {selectedUser.display_name || selectedUser.email}
-                    </h3>
-                    <p className="text-neutral-400 text-xs mt-1">
-                      Visualiza el pronóstico de este usuario para la Parte 1 y Parte 2.
-                    </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-black text-white">
+                        {selectedUser.display_name || selectedUser.email}
+                      </h3>
+                      <p className="text-neutral-400 text-xs mt-1">
+                        Puntaje en esta liga: <span className="text-emerald-400 font-bold">{selectedUser.total_points || 0} pts</span> | Ranking: <span className="text-amber-500 font-bold">#{selectedUser.rank}</span>
+                      </p>
+                    </div>
                   </div>
 
                   {userHasNoPools ? (
@@ -434,218 +443,502 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                     </div>
                   ) : (
                     <>
-                      {/* Section 1: Podio (Parte 1) */}
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                          🏆 Podio Pronosticado (Parte 1)
-                        </h4>
-                        
-                        {new Date().getTime() < getUserP1LockDate(selectedUser.id).getTime() ? (
-                          <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
-                            🔒 Podio oculto hasta el cierre de predicciones de la Parte 1
-                          </div>
-                        ) : !modalP1Prediction || (!modalP1Prediction.champion_team_id && !modalP1Prediction.runner_up_team_id && !modalP1Prediction.third_place_team_id) ? (
-                          <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
-                            ⚠️ Sin predicciones registradas
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {/* Campeón */}
-                            <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center gap-3">
-                              <span className="text-2xl">🥇</span>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">Campeón</p>
-                                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                                  <TeamFlag teamId={modalP1Prediction.champion_team_id} className="w-5 h-3.5 shrink-0" />
-                                  <span className="text-xs font-bold text-white truncate">
-                                    {teams.find(t => t.id === modalP1Prediction.champion_team_id)?.name || modalP1Prediction.champion_team_id || 'Por definir'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Subcampeón */}
-                            <div className="p-3 bg-neutral-950/60 border border-neutral-800 rounded-xl flex items-center gap-3">
-                              <span className="text-2xl text-neutral-400">🥈</span>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Subcampeón</p>
-                                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                                  <TeamFlag teamId={modalP1Prediction.runner_up_team_id} className="w-5 h-3.5 shrink-0" />
-                                  <span className="text-xs font-bold text-white truncate">
-                                    {teams.find(t => t.id === modalP1Prediction.runner_up_team_id)?.name || modalP1Prediction.runner_up_team_id || 'Por definir'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Tercero */}
-                            <div className="p-3 bg-neutral-950/60 border border-neutral-800 rounded-xl flex items-center gap-3">
-                              <span className="text-2xl text-amber-700">🥉</span>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[9px] text-amber-700 font-bold uppercase tracking-wider">Tercer puesto</p>
-                                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                                  <TeamFlag teamId={modalP1Prediction.third_place_team_id} className="w-5 h-3.5 shrink-0" />
-                                  <span className="text-xs font-bold text-white truncate">
-                                    {teams.find(t => t.id === modalP1Prediction.third_place_team_id)?.name || modalP1Prediction.third_place_team_id || 'Por definir'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                      {/* Tabs Bar */}
+                      <div className="flex border-b border-neutral-800">
+                        <button
+                          onClick={() => setModalTab('stats')}
+                          className={`px-4 py-2 text-xs font-bold transition duration-150 border-b-2 -mb-[2px] ${
+                            modalTab === 'stats'
+                              ? 'border-emerald-500 text-emerald-400'
+                              : 'border-transparent text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          Estadísticas
+                        </button>
+                        <button
+                          onClick={() => setModalTab('predictions')}
+                          className={`px-4 py-2 text-xs font-bold transition duration-150 border-b-2 -mb-[2px] ${
+                            modalTab === 'predictions'
+                              ? 'border-emerald-500 text-emerald-400'
+                              : 'border-transparent text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          Predicciones Detalladas
+                        </button>
                       </div>
 
-                      {/* Section 1.5: Partidos Pronosticados (Parte 1) */}
-                      {new Date().getTime() >= getUserP1LockDate(selectedUser.id).getTime() && modalP1Predictions.length > 0 && (
-                        <div className="space-y-3 pt-2">
-                          <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                            ⚽ Partidos Pronosticados (Parte 1)
-                          </h4>
-                          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                            {modalP1Predictions.map(pred => {
-                              const isGroup = pred.phase === 'group';
-                              const matchIdStr = isGroup ? pred.prediction_key.replace('G_', '') : '';
-                              const matchId = isGroup ? parseInt(matchIdStr, 10) : null;
+                      {modalTab === 'stats' ? (
+                        <div className="space-y-6">
+                          {/* 1. Visualizations: Radial Gauge and Donut Chart */}
+                          {(() => {
+                            const userStats = calculateUserStats(modalP2Predictions, matches);
+                            const radiusRadial = 28;
+                            const circRadial = 2 * Math.PI * radiusRadial;
+                            const offsetRadial = circRadial - (circRadial * userStats.effectiveness) / 100;
 
-                              const homeTeamId = pred.predicted_home_team_id;
-                              const awayTeamId = pred.predicted_away_team_id;
-                              const homeTeamObj = teams.find(t => t.id === homeTeamId);
-                              const awayTeamObj = teams.find(t => t.id === awayTeamId);
+                            const totalP2 = userStats.totalRealized || 1;
+                            const radiusDonut = 24;
+                            const circDonut = 2 * Math.PI * radiusDonut;
+                            const exactLen = (userStats.exactCount / totalP2) * circDonut;
+                            const winnerLen = (userStats.winnerCount / totalP2) * circDonut;
+                            const failedLen = (userStats.failedCount / totalP2) * circDonut;
 
-                              const phaseLabels: Record<string, string> = {
-                                group: 'Grupo',
-                                r32: 'Dieciseisavos',
-                                r16: 'Octavos',
-                                qf: 'Cuartos',
-                                sf: 'Semifinal',
-                                '3rd': '3er Puesto',
-                                final: 'Final'
-                              };
-                              const phaseLabel = phaseLabels[pred.phase] || pred.phase;
-
-                              return (
-                                <div key={pred.prediction_key} className="p-3 bg-neutral-950/40 border border-neutral-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                                  {/* Match & Teams */}
-                                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <span className="text-neutral-500 font-mono text-[9px] w-20 shrink-0 uppercase tracking-wider">{phaseLabel} {isGroup && matchId ? `#${matchId}` : ''}</span>
-                                    <div className="flex items-center gap-2 justify-end text-right flex-1 min-w-0">
-                                      <span className="truncate text-white font-bold">{homeTeamObj?.name || homeTeamId}</span>
-                                      <TeamFlag teamId={homeTeamId} className="w-5 h-3.5 shrink-0" />
+                            return (
+                              <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  {/* Radial Gauge Card */}
+                                  <div className="p-4 rounded-xl bg-neutral-950/40 border border-neutral-800/60 flex items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                      <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Efectividad General</h4>
+                                      <p className="text-[10px] text-neutral-500">Porcentaje de pronósticos acertados (marcador exacto + ganador correcto).</p>
                                     </div>
-                                    <span className="text-neutral-500 font-semibold shrink-0">vs</span>
-                                    <div className="flex items-center gap-2 text-left flex-1 min-w-0">
-                                      <TeamFlag teamId={awayTeamId} className="w-5 h-3.5 shrink-0" />
-                                      <span className="truncate text-white font-bold">{awayTeamObj?.name || awayTeamId}</span>
+                                    <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
+                                      <svg className="w-20 h-20 transform -rotate-90">
+                                        <circle cx="40" cy="40" r={radiusRadial} className="stroke-neutral-900 fill-none" strokeWidth="4.5" />
+                                        <circle
+                                          cx="40"
+                                          cy="40"
+                                          r={radiusRadial}
+                                          className="stroke-emerald-500 fill-none transition-all duration-1000"
+                                          strokeWidth="4.5"
+                                          strokeDasharray={circRadial}
+                                          strokeDashoffset={offsetRadial}
+                                          strokeLinecap="round"
+                                        />
+                                      </svg>
+                                      <div className="absolute flex flex-col items-center justify-center">
+                                        <span className="text-base font-black text-white">{userStats.effectiveness}%</span>
+                                      </div>
                                     </div>
                                   </div>
 
-                                  {/* Prediction and Score details */}
-                                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                                    {/* Predicción */}
-                                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
-                                      <span className="text-neutral-400">Pred: </span>
-                                      <span className="text-emerald-400 font-extrabold">
-                                        {pred.predicted_home_score} - {pred.predicted_away_score}
-                                      </span>
-                                      {pred.predicted_winner_team_id && (
-                                        <span className="ml-1 text-[9px] bg-emerald-950 border border-emerald-500/20 text-emerald-400 font-bold px-1 rounded">
-                                          Gana: {pred.predicted_winner_team_id}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* Puntos Ganados */}
-                                    {pred.points_earned !== null && pred.points_earned !== undefined && (
-                                      <div className="text-[11px] font-bold text-amber-500 shrink-0">
-                                        {`+${pred.points_earned} pts`}
+                                  {/* Donut Chart Card */}
+                                  <div className="p-4 rounded-xl bg-neutral-950/40 border border-neutral-800/60 flex items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                      <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Desglose de Pronósticos</h4>
+                                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[9px] text-neutral-400 font-semibold">
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Exacto: {userStats.exactCount}</span>
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-sky-500" /> Ganador: {userStats.winnerCount}</span>
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Fallado: {userStats.failedCount}</span>
                                       </div>
-                                    )}
+                                    </div>
+                                    <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
+                                      <svg className="w-20 h-20 transform -rotate-90">
+                                        <circle cx="40" cy="40" r={radiusDonut} className="stroke-neutral-900 fill-none" strokeWidth="5.5" />
+                                        {userStats.exactCount > 0 && (
+                                          <circle
+                                            cx="40"
+                                            cy="40"
+                                            r={radiusDonut}
+                                            className="stroke-emerald-500 fill-none"
+                                            strokeWidth="5.5"
+                                            strokeDasharray={`${exactLen} ${circDonut - exactLen}`}
+                                            strokeDashoffset="0"
+                                          />
+                                        )}
+                                        {userStats.winnerCount > 0 && (
+                                          <circle
+                                            cx="40"
+                                            cy="40"
+                                            r={radiusDonut}
+                                            className="stroke-sky-500 fill-none"
+                                            strokeWidth="5.5"
+                                            strokeDasharray={`${winnerLen} ${circDonut - winnerLen}`}
+                                            strokeDashoffset={-exactLen}
+                                          />
+                                        )}
+                                        {userStats.failedCount > 0 && (
+                                          <circle
+                                            cx="40"
+                                            cy="40"
+                                            r={radiusDonut}
+                                            className="stroke-red-500 fill-none"
+                                            strokeWidth="5.5"
+                                            strokeDasharray={`${failedLen} ${circDonut - failedLen}`}
+                                            strokeDashoffset={-(exactLen + winnerLen)}
+                                          />
+                                        )}
+                                      </svg>
+                                      <div className="absolute flex flex-col items-center justify-center">
+                                        <span className="text-sm font-black text-white">{userStats.totalRealized}</span>
+                                        <span className="text-[7px] text-neutral-500 font-bold uppercase">Total</span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              );
-                            })}
+
+                                {/* 2. Metrics Cards */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                  <div className="p-3 rounded-xl bg-neutral-950/20 border border-neutral-800 text-center">
+                                    <p className="text-xl font-black text-white">{userStats.totalRealized}</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Realizados</p>
+                                  </div>
+                                  <div className="p-3 rounded-xl bg-emerald-950/10 border border-emerald-500/10 text-center">
+                                    <p className="text-xl font-black text-emerald-400">{userStats.exactCount}</p>
+                                    <p className="text-[8px] text-emerald-500/80 font-bold uppercase tracking-wider mt-1">Marcador Exacto</p>
+                                  </div>
+                                  <div className="p-3 rounded-xl bg-sky-950/10 border border-sky-500/10 text-center">
+                                    <p className="text-xl font-black text-sky-400">{userStats.winnerCount}</p>
+                                    <p className="text-[8px] text-sky-500/80 font-bold uppercase tracking-wider mt-1">Ganador Correcto</p>
+                                  </div>
+                                  <div className="p-3 rounded-xl bg-red-950/10 border border-red-500/10 text-center">
+                                    <p className="text-xl font-black text-red-400/80">{userStats.failedCount}</p>
+                                    <p className="text-[8px] text-red-500/60 font-bold uppercase tracking-wider mt-1">Sin Puntos</p>
+                                  </div>
+                                </div>
+
+                                {/* 3. Recent Form Streak */}
+                                <div className="flex flex-col sm:flex-row items-center gap-3 bg-neutral-950/30 border border-neutral-800/80 rounded-xl p-4 justify-between">
+                                  <div className="flex items-center gap-1.5 justify-center flex-wrap">
+                                    <span className="text-xs text-neutral-400 font-bold uppercase tracking-wider mr-2">Forma Reciente:</span>
+                                    {userStats.recentForm.length === 0 ? (
+                                      <span className="text-xs text-neutral-500 italic">Sin partidos evaluados</span>
+                                    ) : (
+                                      userStats.recentForm.map((item, idx) => {
+                                        const { outcome, homeTeamId, awayTeamId, realHomeScore, realAwayScore, predictedHomeScore, predictedAwayScore, pointsEarned } = item;
+                                        let bgClass = 'bg-neutral-800 border-neutral-700 text-neutral-400';
+                                        let label = 'X';
+                                        let title = 'Sin predicción';
+                                        let tooltipDetail = '';
+                                        
+                                        if (outcome === 'exact') {
+                                          bgClass = 'bg-emerald-950/80 border-emerald-500/30 text-emerald-400 font-black';
+                                          label = 'E';
+                                          title = 'Marcador Exacto';
+                                          tooltipDetail = `+${pointsEarned !== null ? pointsEarned : 6} pts (Marcador Exacto)`;
+                                        } else if (outcome === 'winner') {
+                                          bgClass = 'bg-sky-950/80 border-sky-500/30 text-sky-400 font-black';
+                                          label = 'G';
+                                          title = 'Ganador Correcto';
+                                          tooltipDetail = `+${pointsEarned !== null ? pointsEarned : 3} pts (Ganador Correcto)`;
+                                        } else if (outcome === 'failed') {
+                                          bgClass = 'bg-red-950/80 border-red-500/30 text-red-400 font-bold';
+                                          label = 'F';
+                                          title = 'Sin Puntos';
+                                          tooltipDetail = '0 pts (Predicción fallida)';
+                                        } else if (outcome === 'missed') {
+                                          bgClass = 'bg-neutral-900 border-neutral-800 text-neutral-500';
+                                          label = '-';
+                                          title = 'No Pronosticado';
+                                          tooltipDetail = 'Sin pronóstico registrado';
+                                        }
+
+                                        const homeTeamName = teams.find(t => t.id === homeTeamId)?.name || homeTeamId;
+                                        const awayTeamName = teams.find(t => t.id === awayTeamId)?.name || awayTeamId;
+                                        const matchLabel = `${homeTeamName} ${realHomeScore !== null ? realHomeScore : ''} - ${realAwayScore !== null ? realAwayScore : ''} ${awayTeamName}`;
+                                        const predLabel = predictedHomeScore !== null && predictedAwayScore !== null 
+                                          ? `Pred: ${predictedHomeScore} - ${predictedAwayScore}` 
+                                          : 'Sin predicción';
+
+                                        return (
+                                          <div key={idx} className="relative group flex items-center justify-center">
+                                            <div
+                                              className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] border shadow-inner ${bgClass} transition-all hover:scale-110 cursor-pointer`}
+                                            >
+                                              {label}
+                                            </div>
+
+                                            {/* Custom Tailwind Tooltip */}
+                                            <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-50 transition-all duration-150">
+                                              <div className="bg-neutral-950 border border-neutral-800 text-white rounded-xl shadow-2xl p-2.5 min-w-[180px] text-center space-y-1">
+                                                <p className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-wider">{title}</p>
+                                                <div className="border-b border-neutral-900 my-1" />
+                                                <p className="text-[11px] font-black text-white leading-tight">{matchLabel}</p>
+                                                <p className="text-[10px] text-neutral-400 font-semibold">{predLabel}</p>
+                                                <p className="text-[10px] text-emerald-400 font-extrabold mt-0.5">{tooltipDetail}</p>
+                                              </div>
+                                              <div className="w-2.5 h-2.5 bg-neutral-950 border-r border-b border-neutral-800 transform rotate-45 -mt-1.5" />
+                                            </div>
+                                          </div>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                  <div className="text-xs font-bold text-neutral-400 shrink-0">
+                                    Racha Activa: <span className="text-emerald-400 font-black">{userStats.activeStreak}🔥</span> | Máxima: <span className="text-amber-500 font-black">{userStats.maxStreak}👑</span>
+                                  </div>
+                                </div>
+
+                                {/* 4. Podio Pronosticado */}
+                                <div className="space-y-3 border-t border-neutral-800/60 pt-4">
+                                  <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                                    🏆 Podio Pronosticado (Parte 1)
+                                  </h4>
+                                  
+                                  {new Date().getTime() < getUserP1LockDate(selectedUser.id).getTime() ? (
+                                    <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
+                                      🔒 Podio oculto hasta el cierre de predicciones de la Parte 1
+                                    </div>
+                                  ) : !modalP1Prediction || (!modalP1Prediction.champion_team_id && !modalP1Prediction.runner_up_team_id && !modalP1Prediction.third_place_team_id) ? (
+                                    <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
+                                      ⚠️ Sin predicciones registradas
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                      {/* Campeón */}
+                                      <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center gap-3">
+                                        <span className="text-2xl">🥇</span>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">Campeón</p>
+                                          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                            <TeamFlag teamId={modalP1Prediction.champion_team_id} className="w-5 h-3.5 shrink-0" />
+                                            <span className="text-xs font-bold text-white truncate">
+                                              {teams.find(t => t.id === modalP1Prediction.champion_team_id)?.name || modalP1Prediction.champion_team_id || 'Por definir'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Subcampeón */}
+                                      <div className="p-3 bg-neutral-950/60 border border-neutral-800 rounded-xl flex items-center gap-3">
+                                        <span className="text-2xl text-neutral-400">🥈</span>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Subcampeón</p>
+                                          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                            <TeamFlag teamId={modalP1Prediction.runner_up_team_id} className="w-5 h-3.5 shrink-0" />
+                                            <span className="text-xs font-bold text-white truncate">
+                                              {teams.find(t => t.id === modalP1Prediction.runner_up_team_id)?.name || modalP1Prediction.runner_up_team_id || 'Por definir'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Tercero */}
+                                      <div className="p-3 bg-neutral-950/60 border border-neutral-800 rounded-xl flex items-center gap-3">
+                                        <span className="text-2xl text-amber-700">🥉</span>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[9px] text-amber-700 font-bold uppercase tracking-wider">Tercer puesto</p>
+                                          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                            <TeamFlag teamId={modalP1Prediction.third_place_team_id} className="w-5 h-3.5 shrink-0" />
+                                            <span className="text-xs font-bold text-white truncate">
+                                              {teams.find(t => t.id === modalP1Prediction.third_place_team_id)?.name || modalP1Prediction.third_place_team_id || 'Por definir'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {/* Section 1: Podio (Parte 1) */}
+                          <div className="space-y-3">
+                            <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                              🏆 Podio Pronosticado (Parte 1)
+                            </h4>
+                            
+                            {new Date().getTime() < getUserP1LockDate(selectedUser.id).getTime() ? (
+                              <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
+                                🔒 Podio oculto hasta el cierre de predicciones de la Parte 1
+                              </div>
+                            ) : !modalP1Prediction || (!modalP1Prediction.champion_team_id && !modalP1Prediction.runner_up_team_id && !modalP1Prediction.third_place_team_id) ? (
+                              <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
+                                ⚠️ Sin predicciones registradas
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Campeón */}
+                                <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center gap-3">
+                                  <span className="text-2xl">🥇</span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">Campeón</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                      <TeamFlag teamId={modalP1Prediction.champion_team_id} className="w-5 h-3.5 shrink-0" />
+                                      <span className="text-xs font-bold text-white truncate">
+                                        {teams.find(t => t.id === modalP1Prediction.champion_team_id)?.name || modalP1Prediction.champion_team_id || 'Por definir'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Subcampeón */}
+                                <div className="p-3 bg-neutral-950/60 border border-neutral-800 rounded-xl flex items-center gap-3">
+                                  <span className="text-2xl text-neutral-400">🥈</span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Subcampeón</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                      <TeamFlag teamId={modalP1Prediction.runner_up_team_id} className="w-5 h-3.5 shrink-0" />
+                                      <span className="text-xs font-bold text-white truncate">
+                                        {teams.find(t => t.id === modalP1Prediction.runner_up_team_id)?.name || modalP1Prediction.runner_up_team_id || 'Por definir'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Tercero */}
+                                <div className="p-3 bg-neutral-950/60 border border-neutral-800/60 rounded-xl flex items-center gap-3">
+                                  <span className="text-2xl text-amber-700">🥉</span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[9px] text-amber-700 font-bold uppercase tracking-wider">Tercer puesto</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                      <TeamFlag teamId={modalP1Prediction.third_place_team_id} className="w-5 h-3.5 shrink-0" />
+                                      <span className="text-xs font-bold text-white truncate">
+                                        {teams.find(t => t.id === modalP1Prediction.third_place_team_id)?.name || modalP1Prediction.third_place_team_id || 'Por definir'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Section 1.5: Partidos Pronosticados (Parte 1) */}
+                          {new Date().getTime() >= getUserP1LockDate(selectedUser.id).getTime() && modalP1Predictions.length > 0 && (
+                            <div className="space-y-3 pt-2">
+                              <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                                ⚽ Partidos Pronosticados (Parte 1)
+                              </h4>
+                              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                {modalP1Predictions.map(pred => {
+                                  const isGroup = pred.phase === 'group';
+                                  const matchIdStr = isGroup ? pred.prediction_key.replace('G_', '') : '';
+                                  const matchId = isGroup ? parseInt(matchIdStr, 10) : null;
+
+                                  const homeTeamId = pred.predicted_home_team_id;
+                                  const awayTeamId = pred.predicted_away_team_id;
+                                  const homeTeamObj = teams.find(t => t.id === homeTeamId);
+                                  const awayTeamObj = teams.find(t => t.id === awayTeamId);
+
+                                  const phaseLabels: Record<string, string> = {
+                                    group: 'Grupo',
+                                    r32: 'Dieciseisavos',
+                                    r16: 'Octavos',
+                                    qf: 'Cuartos',
+                                    sf: 'Semifinal',
+                                    '3rd': '3er Puesto',
+                                    final: 'Final'
+                                  };
+                                  const phaseLabel = phaseLabels[pred.phase] || pred.phase;
+
+                                  return (
+                                    <div key={pred.prediction_key} className="p-3 bg-neutral-950/40 border border-neutral-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                      {/* Match & Teams */}
+                                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <span className="text-neutral-500 font-mono text-[9px] w-20 shrink-0 uppercase tracking-wider">{phaseLabel} {isGroup && matchId ? `#${matchId}` : ''}</span>
+                                        <div className="flex items-center gap-2 justify-end text-right flex-1 min-w-0">
+                                          <span className="truncate text-white font-bold">{homeTeamObj?.name || homeTeamId}</span>
+                                          <TeamFlag teamId={homeTeamId} className="w-5 h-3.5 shrink-0" />
+                                        </div>
+                                        <span className="text-neutral-500 font-semibold shrink-0">vs</span>
+                                        <div className="flex items-center gap-2 text-left flex-1 min-w-0">
+                                          <TeamFlag teamId={awayTeamId} className="w-5 h-3.5 shrink-0" />
+                                          <span className="truncate text-white font-bold">{awayTeamObj?.name || awayTeamId}</span>
+                                        </div>
+                                      </div>
+
+                                      {/* Prediction and Score details */}
+                                      <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                                        {/* Predicción */}
+                                        <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
+                                          <span className="text-neutral-400">Pred: </span>
+                                          <span className="text-emerald-400 font-extrabold">
+                                            {pred.predicted_home_score} - {pred.predicted_away_score}
+                                          </span>
+                                          {pred.predicted_winner_team_id && (
+                                            <span className="ml-1 text-[9px] bg-emerald-950 border border-emerald-500/20 text-emerald-400 font-bold px-1 rounded">
+                                              Gana: {pred.predicted_winner_team_id}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Puntos Ganados */}
+                                        {pred.points_earned !== null && pred.points_earned !== undefined && (
+                                          <div className="text-[11px] font-bold text-amber-500 shrink-0">
+                                            {`+${pred.points_earned} pts`}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Section 2: Partidos (Parte 2) */}
+                          <div className="space-y-3 pt-2">
+                            <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider">
+                              ⚽ Partidos Pronosticados (Parte 2)
+                            </h4>
+
+                            {matches.length === 0 ? (
+                              <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
+                                Cargando partidos...
+                              </div>
+                            ) : (
+                              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                {matches.map(match => {
+                                  const isLocked = new Date().getTime() >= new Date(match.lock_time_part2).getTime();
+                                  const pred = modalP2Predictions.find(p => p.match_id === match.id);
+                                  const homeTeam = teams.find(t => t.id === match.home_team_id);
+                                  const awayTeam = teams.find(t => t.id === match.away_team_id);
+
+                                  return (
+                                    <div key={match.id} className="p-3 bg-neutral-950/40 border border-neutral-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                      {/* Match & Teams */}
+                                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <span className="text-neutral-500 font-mono text-[10px] w-6 shrink-0">#{match.id}</span>
+                                        <div className="flex items-center gap-2 justify-end text-right flex-1 min-w-0">
+                                          <span className="truncate text-white font-bold">{homeTeam?.name || match.home_team_id}</span>
+                                          <TeamFlag teamId={match.home_team_id} className="w-5 h-3.5 shrink-0" />
+                                        </div>
+                                        <span className="text-neutral-500 font-semibold shrink-0">vs</span>
+                                        <div className="flex items-center gap-2 text-left flex-1 min-w-0">
+                                          <TeamFlag teamId={match.away_team_id} className="w-5 h-3.5 shrink-0" />
+                                          <span className="truncate text-white font-bold">{awayTeam?.name || match.away_team_id}</span>
+                                        </div>
+                                      </div>
+
+                                      {/* Prediction and Score details */}
+                                      <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                                        {/* Predicción */}
+                                        <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
+                                          <span className="text-neutral-400">Pred: </span>
+                                          {!isLocked ? (
+                                            <span className="text-neutral-500 font-medium">🔒 Oculto</span>
+                                          ) : pred ? (
+                                            <span className="text-emerald-400 font-extrabold">
+                                              {pred.predicted_home_score} - {pred.predicted_away_score}
+                                            </span>
+                                          ) : (
+                                            <span className="text-neutral-500 font-medium">Sin pronóstico</span>
+                                          )}
+                                        </div>
+
+                                        {/* Resultado real */}
+                                        {(match.status === 'live' || match.status === 'finished') && (
+                                          <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
+                                            <span className="text-neutral-400">Real: </span>
+                                            <span className="text-white font-extrabold">
+                                              {match.home_score} - {match.away_score}
+                                            </span>
+                                            {match.status === 'live' && (
+                                              <span className="ml-1 text-[9px] bg-red-600 text-white font-bold px-1 rounded animate-pulse">
+                                                VIVO
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {/* Puntos Ganados */}
+                                        {isLocked && pred && (
+                                          <div className="text-[11px] font-bold text-amber-500 shrink-0">
+                                            {pred.points_earned !== null ? `+${pred.points_earned} pts` : '0 pts'}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
-
-                      {/* Section 2: Partidos (Parte 2) */}
-                      <div className="space-y-3 pt-2">
-                        <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider">
-                          ⚽ Partidos Pronosticados (Parte 2)
-                        </h4>
-
-                        {matches.length === 0 ? (
-                          <div className="p-4 bg-neutral-950/40 border border-neutral-800 rounded-xl text-center text-xs text-neutral-400">
-                            Cargando partidos...
-                          </div>
-                        ) : (
-                          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                            {matches.map(match => {
-                              const isLocked = new Date().getTime() >= new Date(match.lock_time_part2).getTime();
-                              const pred = modalP2Predictions.find(p => p.match_id === match.id);
-                              const homeTeam = teams.find(t => t.id === match.home_team_id);
-                              const awayTeam = teams.find(t => t.id === match.away_team_id);
-
-                              return (
-                                <div key={match.id} className="p-3 bg-neutral-950/40 border border-neutral-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                                  {/* Match & Teams */}
-                                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <span className="text-neutral-500 font-mono text-[10px] w-6 shrink-0">#{match.id}</span>
-                                    <div className="flex items-center gap-2 justify-end text-right flex-1 min-w-0">
-                                      <span className="truncate text-white font-bold">{homeTeam?.name || match.home_team_id}</span>
-                                      <TeamFlag teamId={match.home_team_id} className="w-5 h-3.5 shrink-0" />
-                                    </div>
-                                    <span className="text-neutral-500 font-semibold shrink-0">vs</span>
-                                    <div className="flex items-center gap-2 text-left flex-1 min-w-0">
-                                      <TeamFlag teamId={match.away_team_id} className="w-5 h-3.5 shrink-0" />
-                                      <span className="truncate text-white font-bold">{awayTeam?.name || match.away_team_id}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Prediction and Score details */}
-                                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                                    {/* Predicción */}
-                                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
-                                      <span className="text-neutral-400">Pred: </span>
-                                      {!isLocked ? (
-                                        <span className="text-neutral-500 font-medium">🔒 Oculto</span>
-                                      ) : pred ? (
-                                        <span className="text-emerald-400 font-extrabold">
-                                          {pred.predicted_home_score} - {pred.predicted_away_score}
-                                        </span>
-                                      ) : (
-                                        <span className="text-neutral-500 font-medium">Sin pronóstico</span>
-                                      )}
-                                    </div>
-
-                                    {/* Resultado real */}
-                                    {(match.status === 'live' || match.status === 'finished') && (
-                                      <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
-                                        <span className="text-neutral-400">Real: </span>
-                                        <span className="text-white font-extrabold">
-                                          {match.home_score} - {match.away_score}
-                                        </span>
-                                        {match.status === 'live' && (
-                                          <span className="ml-1 text-[9px] bg-red-600 text-white font-bold px-1 rounded animate-pulse">
-                                            VIVO
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {/* Puntos Ganados */}
-                                    {isLocked && pred && (
-                                      <div className="text-[11px] font-bold text-amber-500 shrink-0">
-                                        {pred.points_earned !== null ? `+${pred.points_earned} pts` : '0 pts'}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
                     </>
                   )}
                 </div>

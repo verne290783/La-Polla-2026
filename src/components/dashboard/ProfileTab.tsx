@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getProfile, getChampionPrediction, getP2Predictions, getTeams, getUserPools, getPoolMemberInfo } from '@/lib/db-helpers';
+import { getProfile, getChampionPrediction, getP2Predictions, getTeams, getUserPools, getPoolMemberInfo, getMatches } from '@/lib/db-helpers';
 import TeamFlag from '@/components/common/TeamFlag';
 import { createClient } from '@/lib/supabase/client';
+import { calculateUserStats } from '@/lib/stats-helpers';
 
 interface ProfileTabProps {
   userId: string;
@@ -17,6 +18,7 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
   const [championPred, setChampionPred] = useState<any>(null);
   const [p2Predictions, setP2Predictions] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPoolStats, setLoadingPoolStats] = useState(false);
 
@@ -61,15 +63,17 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
     async function initProfile() {
       try {
         setLoading(true);
-        const [prof, allTeams, userPools] = await Promise.all([
+        const [prof, allTeams, userPools, allMatches] = await Promise.all([
           getProfile(userId),
           getTeams(),
-          getUserPools(userId)
+          getUserPools(userId),
+          getMatches()
         ]);
 
         setProfile(prof);
         setTeams(allTeams);
         setPools(userPools);
+        setMatches(allMatches);
 
         if (userPools.length > 0) {
           setSelectedPoolId(userPools[0].id);
@@ -141,11 +145,13 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
     );
   };
 
-  // Estadísticas básicas
-  const totalP2Made = p2Predictions.length;
-  const exactScores = p2Predictions.filter(p => p.points_earned === 3).length; // 3 pts por marcador exacto
-  const correctWinners = p2Predictions.filter(p => p.points_earned === 1).length; // 1 pt por resultado/ganador correcto (sin marcador exacto)
-  const failedP2 = p2Predictions.filter(p => p.points_earned === 0).length;
+  // Estadísticas básicas usando helper exacto
+  const {
+    totalRealized: totalP2Made,
+    exactCount: exactScores,
+    winnerCount: correctWinners,
+    failedCount: failedP2
+  } = calculateUserStats(p2Predictions, matches);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">

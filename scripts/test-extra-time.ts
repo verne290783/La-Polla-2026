@@ -77,7 +77,7 @@ async function run() {
       winner_team_id: teamHome,
       status: 'finished',
       match_date: new Date().toISOString(),
-      lock_time_part2: new Date().toISOString()
+      lock_time_part2: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
     };
 
     console.log('Inserting mock match...');
@@ -137,7 +137,7 @@ async function run() {
     console.log('✅ INTEGRATION TEST PASSED SUCCESSFULLY!');
   } catch (err: any) {
     console.error('❌ Test failed:', err.message || err);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
     console.log('Cleaning up mock data...');
     try {

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/lib/supabase/server": ["./scripts/mock-supabase-server.ts"],
+      "@/*": ["./src/*"],
+      "next/headers": ["./scripts/mock-next-headers.ts"],
+      "@supabase/supabase-js": ["./scripts/mock-supabase-js.ts"]
+    }
+  }
+}

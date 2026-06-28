@@ -56,7 +56,7 @@ begin
     -- Resetear points_earned a null en champion_predictions si es el partido final (104)
     if p_match_id = 104 then
       update public.champion_predictions
-      set points_earned = null;
+      set points_earned = null where true;
     end if;
   else
     v_ah := r_match.home_score;
@@ -99,68 +99,72 @@ begin
     -- =====================================================================
     for r_pred in select * from public.phase_predictions where match_id = p_match_id loop
       v_pts := 0;
-      v_ph := r_pred.predicted_home_score;
-      v_pa := r_pred.predicted_away_score;
-
-      -- Determinar ganador previsto
-      if v_ph > v_pa then
-        v_pw := r_match.home_team_id;
-      elsif v_ph < v_pa then
-        v_pw := r_match.away_team_id;
+      if r_pred.updated_at >= r_match.lock_time_part2 then
+        v_pts := 0;
       else
-        v_pw := r_pred.predicted_winner_team_id;
-      end if;
+        v_ph := r_pred.predicted_home_score;
+        v_pa := r_pred.predicted_away_score;
 
-      -- Lógica de puntuación
-      if v_is_group then
-        -- FASE DE GRUPOS
-        if v_ah = v_aa then
-          -- Partido real terminó en empate
-          if v_ph = v_pa then
-            v_pts := 1; -- Acertar empate
-            if v_ph = v_ah then
-              v_pts := v_pts + 1; -- Goles equipo 1
+        -- Determinar ganador previsto
+        if v_ph > v_pa then
+          v_pw := r_match.home_team_id;
+        elsif v_ph < v_pa then
+          v_pw := r_match.away_team_id;
+        else
+          v_pw := r_pred.predicted_winner_team_id;
+        end if;
+
+        -- Lógica de puntuación
+        if v_is_group then
+          -- FASE DE GRUPOS
+          if v_ah = v_aa then
+            -- Partido real terminó en empate
+            if v_ph = v_pa then
+              v_pts := 1; -- Acertar empate
+              if v_ph = v_ah then
+                v_pts := v_pts + 1; -- Goles equipo 1
+              end if;
+              if v_pa = v_aa then
+                v_pts := v_pts + 1; -- Goles equipo 2
+              end if;
             end if;
-            if v_pa = v_aa then
-              v_pts := v_pts + 1; -- Goles equipo 2
+          else
+            -- Partido real tuvo un ganador
+            if v_pw = v_aw then
+              v_pts := 1; -- Acertar ganador
+              
+              -- Goles del ganador
+              if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
+                v_pts := v_pts + 3;
+              end if;
+              -- Goles del perdedor
+              if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
+                v_pts := v_pts + 2;
+              end if;
+            else
+              -- Ganador incorrecto, pero evaluar goles individualmente por si acaso
+              if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
+                v_pts := v_pts + 3;
+              end if;
+              if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
+                v_pts := v_pts + 2;
+              end if;
             end if;
           end if;
         else
-          -- Partido real tuvo un ganador
+          -- FASES ELIMINATORIAS (Siempre tienen definición)
           if v_pw = v_aw then
-            v_pts := 1; -- Acertar ganador
-            
-            -- Goles del ganador
-            if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
-              v_pts := v_pts + 3;
-            end if;
-            -- Goles del perdedor
-            if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
-              v_pts := v_pts + 2;
-            end if;
-          else
-            -- Ganador incorrecto, pero evaluar goles individualmente por si acaso
-            if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
-              v_pts := v_pts + 3;
-            end if;
-            if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
-              v_pts := v_pts + 2;
-            end if;
+            v_pts := 1; -- Acertar ganador definitivo
           end if;
-        end if;
-      else
-        -- FASES ELIMINATORIAS (Siempre tienen definición)
-        if v_pw = v_aw then
-          v_pts := 1; -- Acertar ganador definitivo
-        end if;
 
-        -- Evaluar goles regular 90 min (o 120 min con prórroga si empataron a los 90 min) para el que avanzó
-        if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
-          v_pts := v_pts + 3;
-        end if;
-        -- Evaluar goles regular 90 min (o 120 min con prórroga si empataron a los 90 min) para el que fue eliminado
-        if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
-          v_pts := v_pts + 2;
+          -- Evaluar goles regular 90 min (o 120 min con prórroga si empataron a los 90 min) para el que avanzó
+          if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
+            v_pts := v_pts + 3;
+          end if;
+          -- Evaluar goles regular 90 min (o 120 min con prórroga si empataron a los 90 min) para el que fue eliminado
+          if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
+            v_pts := v_pts + 2;
+          end if;
         end if;
       end if;
 
@@ -179,48 +183,74 @@ begin
     loop
       v_pts := 0;
 
-      -- Verificar si los equipos que el usuario predijo coinciden con los reales de este partido
-      if (
-        (r_pred.predicted_home_team_id = r_match.home_team_id and r_pred.predicted_away_team_id = r_match.away_team_id)
-        or
-        (r_pred.predicted_home_team_id = r_match.away_team_id and r_pred.predicted_away_team_id = r_match.home_team_id)
-      ) then
-        
-        v_ph := r_pred.predicted_home_score;
-        v_pa := r_pred.predicted_away_score;
+      declare
+        v_unlocked_until timestamp with time zone;
+      begin
+        select p1_unlocked_until into v_unlocked_until 
+        from public.profiles 
+        where id = r_pred.user_id;
 
-        if r_pred.predicted_home_team_id = r_match.away_team_id then
-          v_ph := r_pred.predicted_away_score;
-          v_pa := r_pred.predicted_home_score;
-        end if;
-
-        -- Determinar ganador previsto
-        if v_ph > v_pa then
-          v_pw := r_match.home_team_id;
-        elsif v_ph < v_pa then
-          v_pw := r_match.away_team_id;
+        if r_pred.updated_at >= r_match.lock_time_part2 then
+          v_pts := 0;
+          
+          update public.full_tournament_predictions
+          set points_earned = v_pts
+          where user_id = r_pred.user_id and pool_id = r_pred.pool_id and prediction_key = r_pred.prediction_key;
         else
-          v_pw := r_pred.predicted_winner_team_id;
-        end if;
+          -- Verificar si los equipos que el usuario predijo coinciden con los reales de este partido
+          if (
+            (r_pred.predicted_home_team_id = r_match.home_team_id and r_pred.predicted_away_team_id = r_match.away_team_id)
+            or
+            (r_pred.predicted_home_team_id = r_match.away_team_id and r_pred.predicted_away_team_id = r_match.home_team_id)
+          ) then
+            
+            v_ph := r_pred.predicted_home_score;
+            v_pa := r_pred.predicted_away_score;
 
-        -- Lógica de puntuación
-        if v_is_group then
-          if v_ah = v_aa then
-            if v_ph = v_pa then
-              v_pts := 1;
-              if v_ph = v_ah then v_pts := v_pts + 1; end if;
-              if v_pa = v_aa then v_pts := v_pts + 1; end if;
+            if r_pred.predicted_home_team_id = r_match.away_team_id then
+              v_ph := r_pred.predicted_away_score;
+              v_pa := r_pred.predicted_home_score;
             end if;
-          else
-            if v_pw = v_aw then
-              v_pts := 1;
-              if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
-                v_pts := v_pts + 3;
-              end if;
-              if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
-                v_pts := v_pts + 2;
+
+            -- Determinar ganador previsto
+            if v_ph > v_pa then
+              v_pw := r_match.home_team_id;
+            elsif v_ph < v_pa then
+              v_pw := r_match.away_team_id;
+            else
+              v_pw := r_pred.predicted_winner_team_id;
+            end if;
+
+            -- Lógica de puntuación
+            if v_is_group then
+              if v_ah = v_aa then
+                if v_ph = v_pa then
+                  v_pts := 1;
+                  if v_ph = v_ah then v_pts := v_pts + 1; end if;
+                  if v_pa = v_aa then v_pts := v_pts + 1; end if;
+                end if;
+              else
+                if v_pw = v_aw then
+                  v_pts := 1;
+                  if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
+                    v_pts := v_pts + 3;
+                  end if;
+                  if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
+                    v_pts := v_pts + 2;
+                  end if;
+                else
+                  if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
+                    v_pts := v_pts + 3;
+                  end if;
+                  if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
+                    v_pts := v_pts + 2;
+                  end if;
+                end if;
               end if;
             else
+              if v_pw = v_aw then
+                v_pts := 1;
+              end if;
               if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
                 v_pts := v_pts + 3;
               end if;
@@ -228,29 +258,19 @@ begin
                 v_pts := v_pts + 2;
               end if;
             end if;
-          end if;
-        else
-          if v_pw = v_aw then
-            v_pts := 1;
-          end if;
-          if (v_aw = r_match.home_team_id and v_ph = v_ah) or (v_aw = r_match.away_team_id and v_pa = v_aa) then
-            v_pts := v_pts + 3;
-          end if;
-          if (v_al = r_match.home_team_id and v_ph = v_ah) or (v_al = r_match.away_team_id and v_pa = v_aa) then
-            v_pts := v_pts + 2;
+
+            -- Actualizar predicción
+            update public.full_tournament_predictions
+            set points_earned = v_pts
+            where user_id = r_pred.user_id and pool_id = r_pred.pool_id and prediction_key = r_pred.prediction_key;
+
+          else
+            update public.full_tournament_predictions
+            set points_earned = 0
+            where user_id = r_pred.user_id and pool_id = r_pred.pool_id and prediction_key = r_pred.prediction_key;
           end if;
         end if;
-
-        -- Actualizar predicción
-        update public.full_tournament_predictions
-        set points_earned = v_pts
-        where user_id = r_pred.user_id and pool_id = r_pred.pool_id and prediction_key = r_pred.prediction_key;
-
-      else
-        update public.full_tournament_predictions
-        set points_earned = 0
-        where user_id = r_pred.user_id and pool_id = r_pred.pool_id and prediction_key = r_pred.prediction_key;
-      end if;
+      end;
     end loop;
 
     -- =====================================================================
@@ -260,27 +280,40 @@ begin
       for r_pred in select * from public.champion_predictions loop
         v_pts := 0;
         
-        -- Campeón (+5)
-        if r_pred.champion_team_id = v_aw then
-          v_pts := v_pts + 5;
-        end if;
-        -- Subcampeón (+3)
-        if r_pred.runner_up_team_id = v_al then
-          v_pts := v_pts + 3;
-        end if;
-        -- Tercer lugar (+2)
         declare
-          v_third_winner text;
+          v_unlocked_until timestamp with time zone;
         begin
-          select winner_team_id into v_third_winner from public.matches where id = 103;
-          if r_pred.third_place_team_id = v_third_winner then
-            v_pts := v_pts + 2;
-          end if;
-        end;
+          select p1_unlocked_until into v_unlocked_until 
+          from public.profiles 
+          where id = r_pred.user_id;
 
-        update public.champion_predictions
-        set points_earned = v_pts
-        where user_id = r_pred.user_id and pool_id = r_pred.pool_id;
+          if r_pred.updated_at >= '2026-06-11T20:00:00Z'::timestamp with time zone 
+             and (v_unlocked_until is null or r_pred.updated_at > v_unlocked_until) then
+            v_pts := 0;
+          else
+            -- Campeón (+5)
+            if r_pred.champion_team_id = v_aw then
+              v_pts := v_pts + 5;
+            end if;
+            -- Subcampeón (+3)
+            if r_pred.runner_up_team_id = v_al then
+              v_pts := v_pts + 3;
+            end if;
+            -- Tercer lugar (+2)
+            declare
+              v_third_winner text;
+            begin
+              select winner_team_id into v_third_winner from public.matches where id = 103;
+              if r_pred.third_place_team_id = v_third_winner then
+                v_pts := v_pts + 2;
+              end if;
+            end;
+          end if;
+
+          update public.champion_predictions
+          set points_earned = v_pts
+          where user_id = r_pred.user_id and pool_id = r_pred.pool_id;
+        end;
       end loop;
     end if;
   end if;

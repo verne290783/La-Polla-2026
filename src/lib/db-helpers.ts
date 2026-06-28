@@ -240,6 +240,7 @@ export async function updateMatchResult(
       away_score: awayScore,
       status,
       winner_team_id: winnerTeamId || null,
+      is_manual_override: true,
     })
     .eq('id', matchId)
     .select();

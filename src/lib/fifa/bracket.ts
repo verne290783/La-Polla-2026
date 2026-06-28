@@ -342,8 +342,8 @@ export function simulateNextRounds(
   // --- Cuartos de Final ---
   const qfPlan = [
     { id: 97, homeMatchId: 89, awayMatchId: 90 },
-    { id: 98, homeMatchId: 91, awayMatchId: 92 },
-    { id: 99, homeMatchId: 93, awayMatchId: 94 },
+    { id: 98, homeMatchId: 93, awayMatchId: 94 },
+    { id: 99, homeMatchId: 91, awayMatchId: 92 },
     { id: 100, homeMatchId: 95, awayMatchId: 96 },
   ];
 

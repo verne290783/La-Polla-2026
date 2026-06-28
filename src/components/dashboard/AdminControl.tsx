@@ -28,6 +28,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
   const [winnerTeamId, setWinnerTeamId] = useState<string | null>(match.winner_team_id);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isManualOverride, setIsManualOverride] = useState<boolean>(!!match.is_manual_override);
 
   const homeTeam = teams.find(t => t.id === match.home_team_id);
   const awayTeam = teams.find(t => t.id === match.away_team_id);
@@ -48,6 +49,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
     setAwayScoreEt(match.away_score !== null ? match.away_score.toString() : '');
     setStatus(match.status);
     setWinnerTeamId(match.winner_team_id);
+    setIsManualOverride(!!match.is_manual_override);
   }, [match]);
 
   const handleSaveClick = async () => {
@@ -82,7 +84,8 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
         home_score: isDraw90 && parsedHomeEt !== null ? parsedHomeEt : parsedHome,
         away_score: isDraw90 && parsedAwayEt !== null ? parsedAwayEt : parsedAway,
         status,
-        winner_team_id: isKnockout ? winnerTeamId : null
+        winner_team_id: isKnockout ? winnerTeamId : null,
+        is_manual_override: isManualOverride
       });
 
       setMessage({ type: 'success', text: 'Partido guardado' });
@@ -162,7 +165,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
           <input
             type="number"
             value={homeScore}
-            onChange={(e) => setHomeScore(e.target.value)}
+            onChange={(e) => { setHomeScore(e.target.value); setIsManualOverride(true); }}
             placeholder="-"
             className="w-12 h-9 bg-neutral-950 border border-neutral-800 rounded-lg text-center text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
           />
@@ -170,7 +173,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
           <input
             type="number"
             value={awayScore}
-            onChange={(e) => setAwayScore(e.target.value)}
+            onChange={(e) => { setAwayScore(e.target.value); setIsManualOverride(true); }}
             placeholder="-"
             className="w-12 h-9 bg-neutral-950 border border-neutral-800 rounded-lg text-center text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
           />
@@ -183,7 +186,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
               <input
                 type="number"
                 value={homeScoreEt}
-                onChange={(e) => setHomeScoreEt(e.target.value)}
+                onChange={(e) => { setHomeScoreEt(e.target.value); setIsManualOverride(true); }}
                 placeholder="-"
                 className="w-12 h-9 bg-neutral-950 border border-neutral-800 rounded-lg text-center text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
               />
@@ -191,7 +194,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
               <input
                 type="number"
                 value={awayScoreEt}
-                onChange={(e) => setAwayScoreEt(e.target.value)}
+                onChange={(e) => { setAwayScoreEt(e.target.value); setIsManualOverride(true); }}
                 placeholder="-"
                 className="w-12 h-9 bg-neutral-950 border border-neutral-800 rounded-lg text-center text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
               />
@@ -203,7 +206,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
         <div>
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
+            onChange={(e) => { setStatus(e.target.value as any); setIsManualOverride(true); }}
             className="h-9 px-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-neutral-300 font-semibold focus:border-emerald-500 focus:outline-none"
           >
             <option value="scheduled">Programado</option>
@@ -218,7 +221,7 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
             <span className="text-[10px] text-neutral-500 uppercase font-bold">Ganador:</span>
             <select
               value={winnerTeamId || ''}
-              onChange={(e) => setWinnerTeamId(e.target.value || null)}
+              onChange={(e) => { setWinnerTeamId(e.target.value || null); setIsManualOverride(true); }}
               className="h-9 px-2 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-neutral-300 font-semibold focus:border-emerald-500 focus:outline-none max-w-[120px]"
             >
               <option value="">Ninguno / Empate</option>
@@ -229,7 +232,17 @@ function MatchRow({ match, teams, onSave }: MatchRowProps) {
         )}
 
         {/* Botón Guardar y Estado */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-1.5 cursor-pointer text-xs text-neutral-400 select-none">
+            <input
+              type="checkbox"
+              checked={isManualOverride}
+              onChange={(e) => setIsManualOverride(e.target.checked)}
+              className="w-4 h-4 rounded border-neutral-800 bg-neutral-950 text-emerald-600 focus:ring-emerald-500"
+            />
+            <span>Override Manual</span>
+          </label>
+
           <button
             onClick={handleSaveClick}
             disabled={saving}
@@ -393,7 +406,8 @@ export default function AdminControl() {
         home_score_90: data.home_score_90,
         away_score_90: data.away_score_90,
         status: data.status,
-        winner_team_id: data.winner_team_id
+        winner_team_id: data.winner_team_id,
+        is_manual_override: data.is_manual_override
       })
       .eq('id', matchId);
 

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { getProfile, getUserPools, getPoolMembersRanking, getMatches, getTeams } from '@/lib/db-helpers';
 import { getTournamentState } from '@/lib/fifa/state';
 import TeamFlag from '@/components/common/TeamFlag';
+import { createClient } from '@/lib/supabase/client';
+import { calculateGroupStats, GroupStatsResult, P2Prediction } from '@/lib/stats-helpers';
 
 interface HomeTabProps {
   userId: string;
@@ -17,6 +19,9 @@ export default function HomeTab({ userId, onNavigateToTab }: HomeTabProps) {
   const [activeMatches, setActiveMatches] = useState<any[]>([]);
   const [teamsFlags, setTeamsFlags] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [globalStats, setGlobalStats] = useState<{ globalAccuracy: number; favoriteChampion: string; upsetMatchName: string } | null>(null);
+  const [groupStatsList, setGroupStatsList] = useState<GroupStatsResult[]>([]);
+  const [selectedPoolStatsId, setSelectedPoolStatsId] = useState<string>('');
 
   useEffect(() => {
     async function loadData() {
@@ -27,7 +32,7 @@ export default function HomeTab({ userId, onNavigateToTab }: HomeTabProps) {
         const prof = await getProfile(userId);
         setProfile(prof);
 
-        // Cargar Equipos para Banderas
+        // Cargar Equipos
         const teamsList = await getTeams();
         const flagsMap: Record<string, string> = {};
         teamsList.forEach(t => {
@@ -35,20 +40,17 @@ export default function HomeTab({ userId, onNavigateToTab }: HomeTabProps) {
         });
         setTeamsFlags(flagsMap);
 
-        // 2. Cargar Partidos Activos (Filtro por fecha real o estado = 'live')
+        // 2. Cargar Partidos Activos
         const allMatches = await getMatches();
         const vTime = new Date().getTime();
-
         const oneDayMs = 24 * 60 * 60 * 1000;
 
         const active = allMatches.filter(m => {
-          // Un partido es activo si su estado es 'live' o si se juega en el "mismo día" (con margen de 24h)
           const mTime = new Date(m.match_date).getTime();
           const isSameDay = Math.abs(mTime - vTime) < oneDayMs;
           return m.status === 'live' || (isSameDay && m.status === 'scheduled') || (isSameDay && m.status === 'finished');
         });
 
-        // Limitar a máximo 5 partidos ordenados
         setActiveMatches(active.slice(0, 5));
 
         // 3. Cargar Grupos y Ranking Primario
@@ -66,6 +68,121 @@ export default function HomeTab({ userId, onNavigateToTab }: HomeTabProps) {
             });
           }
         }
+
+        // 4. Calcular Estadísticas Globales y Grupales
+        const supabaseClient = createClient();
+
+        // 4.1. Efectividad Global
+        const [totalP2EvaluatedRes, totalP2CorrectRes] = await Promise.all([
+          supabaseClient.from('phase_predictions').select('*', { count: 'exact', head: true }).not('points_earned', 'is', null),
+          supabaseClient.from('phase_predictions').select('*', { count: 'exact', head: true }).gt('points_earned', 0)
+        ]);
+        const globalAccuracy = totalP2EvaluatedRes.count && totalP2EvaluatedRes.count > 0
+          ? Math.round(((totalP2CorrectRes.count || 0) / totalP2EvaluatedRes.count) * 100)
+          : 38;
+
+        // 4.2. Favorito Global
+        const { data: globalChampPreds } = await supabaseClient.from('champion_predictions').select('champion_team_id');
+        const globalChampCounts: Record<string, number> = {};
+        (globalChampPreds || []).forEach(cp => {
+          if (cp.champion_team_id) {
+            globalChampCounts[cp.champion_team_id] = (globalChampCounts[cp.champion_team_id] || 0) + 1;
+          }
+        });
+        let favoriteChampIdGlobally: string | null = null;
+        let maxGlobalCount = 0;
+        Object.entries(globalChampCounts).forEach(([teamId, count]) => {
+          if (count > maxGlobalCount) {
+            maxGlobalCount = count;
+            favoriteChampIdGlobally = teamId;
+          }
+        });
+        const favoriteChampNameGlobally = favoriteChampIdGlobally
+          ? (teamsList.find(t => t.id === favoriteChampIdGlobally)?.name || favoriteChampIdGlobally)
+          : 'Ninguno';
+
+        // 4.3. Partido Sorpresa (Upset)
+        const { data: allP2Preds } = await supabaseClient
+          .from('phase_predictions')
+          .select('match_id, points_earned')
+          .not('points_earned', 'is', null);
+
+        let upsetMatchName = 'Sin evaluar';
+        if (allP2Preds && allP2Preds.length > 0) {
+          const matchEvaluations: Record<number, { total: number; correct: number }> = {};
+          allP2Preds.forEach(p => {
+            if (!matchEvaluations[p.match_id]) {
+              matchEvaluations[p.match_id] = { total: 0, correct: 0 };
+            }
+            matchEvaluations[p.match_id].total++;
+            if (p.points_earned && p.points_earned > 0) {
+              matchEvaluations[p.match_id].correct++;
+            }
+          });
+
+          let minAccuracy = 1.1;
+          let hardestMatchId: number | null = null;
+          Object.entries(matchEvaluations).forEach(([matchIdStr, evalObj]) => {
+            const mId = parseInt(matchIdStr, 10);
+            const acc = evalObj.correct / evalObj.total;
+            if (acc < minAccuracy) {
+              minAccuracy = acc;
+              hardestMatchId = mId;
+            }
+          });
+
+          if (hardestMatchId !== null) {
+            const hardestMatchObj = allMatches.find(m => m.id === hardestMatchId);
+            if (hardestMatchObj) {
+              upsetMatchName = `${hardestMatchObj.home_team_id} vs ${hardestMatchObj.away_team_id} (Solo ${Math.round(minAccuracy * 100)}% de aciertos)`;
+            }
+          }
+        }
+
+        setGlobalStats({
+          globalAccuracy,
+          favoriteChampion: favoriteChampNameGlobally,
+          upsetMatchName
+        });
+
+        // 4.4. Estadísticas y Rachas por Grupo
+        if (userPools.length > 0) {
+          const poolStatsPromises = userPools.map(async (pool) => {
+            const ranking = await getPoolMembersRanking(pool.id);
+            const [predsRes, champsRes] = await Promise.all([
+              supabaseClient.from('phase_predictions').select('*').eq('pool_id', pool.id),
+              supabaseClient.from('champion_predictions').select('*').eq('pool_id', pool.id)
+            ]);
+
+            const predictions = (predsRes.data || []) as P2Prediction[];
+            const championPredictions = champsRes.data || [];
+
+            return calculateGroupStats(
+              pool.id,
+              pool.name,
+              ranking,
+              predictions,
+              championPredictions,
+              allMatches,
+              teamsList
+            );
+          });
+
+          const resolvedGroupStats = await Promise.all(poolStatsPromises);
+          setGroupStatsList(resolvedGroupStats);
+
+          // Racha más alta para seleccionar por defecto
+          let defaultSelectedPoolId = userPools[0].id;
+          let highestStreak = -1;
+          resolvedGroupStats.forEach(gs => {
+            if (gs.bestActiveStreak > highestStreak) {
+              highestStreak = gs.bestActiveStreak;
+              defaultSelectedPoolId = gs.poolId;
+            }
+          });
+          setSelectedPoolStatsId(defaultSelectedPoolId);
+        }
+
       } catch (err) {
         console.error('Error al cargar datos del Dashboard:', err);
       } finally {
@@ -179,6 +296,131 @@ export default function HomeTab({ userId, onNavigateToTab }: HomeTabProps) {
           )}
         </div>
 
+      </div>
+
+      {/* 2.5. Panel de Estadísticas del Torneo y de tus Grupos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Panel 1: Estadísticas Globales de la Comunidad */}
+        <div className="p-6 rounded-2xl glass-card border border-neutral-800/60 shadow-lg space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🌍</span>
+            <h3 className="text-lg font-bold text-white">Estadísticas de la Comunidad</h3>
+          </div>
+          {globalStats ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-neutral-950/40 border border-neutral-800 text-center space-y-1">
+                  <p className="text-3xl font-black text-emerald-400">{globalStats.globalAccuracy}%</p>
+                  <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Efectividad Promedio</p>
+                </div>
+                <div className="p-4 rounded-xl bg-neutral-950/40 border border-neutral-800 text-center space-y-1">
+                  <p className="text-sm font-bold text-white truncate mt-1.5">{globalStats.favoriteChampion}</p>
+                  <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Campeón Favorito</p>
+                </div>
+              </div>
+              <div className="p-4 rounded-xl bg-neutral-950/40 border border-neutral-800 space-y-1">
+                <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">{'El "Trompazo" (Mayor Sorpresa)'}</p>
+                <p className="text-xs text-white font-semibold leading-relaxed mt-0.5">{globalStats.upsetMatchName}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-500 italic">Cargando datos globales...</p>
+          )}
+        </div>
+
+        {/* Panel 2: Estadísticas y Rachas por Grupo */}
+        <div className="p-6 rounded-2xl glass-card border border-neutral-800/60 shadow-lg space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👥</span>
+              <h3 className="text-lg font-bold text-white">Rachas por Grupo</h3>
+            </div>
+            {groupStatsList.length > 1 && (
+              <select
+                value={selectedPoolStatsId}
+                onChange={(e) => setSelectedPoolStatsId(e.target.value)}
+                className="bg-neutral-950 border border-neutral-800 text-[10px] text-white font-bold rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
+              >
+                {groupStatsList.map((gs) => (
+                  <option key={gs.poolId} value={gs.poolId}>
+                    {gs.poolName}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {groupStatsList.length === 0 ? (
+            <div className="p-6 rounded-xl bg-neutral-950/20 border border-neutral-800 text-center text-xs text-neutral-500 italic">
+              No perteneces a ningún grupo para calcular estadísticas.
+            </div>
+          ) : (
+            (() => {
+              const selectedGroup = groupStatsList.find(gs => gs.poolId === selectedPoolStatsId) || groupStatsList[0];
+              if (!selectedGroup) return null;
+              return (
+                <div className="space-y-4">
+                  {/* Group summaries */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 rounded-xl bg-neutral-950/40 border border-neutral-800 text-center">
+                      <p className="text-xl font-bold text-white">{selectedGroup.averageEffectiveness}%</p>
+                      <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-wider mt-0.5">Efectividad Promedio</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-neutral-950/40 border border-neutral-800 text-center">
+                      <p className="text-xs font-bold text-white truncate mt-1">{selectedGroup.favoriteChampionName}</p>
+                      <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Campeón Favorito</p>
+                    </div>
+                  </div>
+
+                  {/* Leaderboard of streaks */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Miembros en Racha (On Fire 🔥)</p>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {selectedGroup.memberStreaks.map((m, idx) => {
+                        const isMe = m.userId === userId;
+                        return (
+                          <div
+                            key={m.userId}
+                            className={`flex items-center justify-between p-2 rounded-xl border text-xs transition duration-150 ${
+                              isMe
+                                ? 'bg-emerald-950/20 border-emerald-500/20'
+                                : 'bg-neutral-950/20 border-neutral-800 hover:bg-neutral-900/10'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] font-mono text-neutral-500 w-4 font-bold">#{idx + 1}</span>
+                              <div className="w-5 h-5 rounded-full bg-emerald-900/40 border border-emerald-500/20 flex items-center justify-center font-bold text-[9px] text-emerald-400 overflow-hidden shadow-inner shrink-0">
+                                {m.avatarUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={m.avatarUrl} alt={m.displayName} className="w-full h-full object-cover" />
+                                ) : (
+                                  m.displayName.charAt(0).toUpperCase()
+                                )}
+                              </div>
+                              <span className={`truncate font-semibold ${isMe ? 'text-emerald-400' : 'text-neutral-300'}`}>
+                                {m.displayName} {isMe && '(Tú)'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 font-bold shrink-0">
+                              {m.activeStreak > 0 ? (
+                                <span className="bg-emerald-950 border border-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 animate-pulse">
+                                  Racha: {m.activeStreak} 🔥
+                                </span>
+                              ) : (
+                                <span className="text-[9px] text-neutral-500">Racha: 0</span>
+                              )}
+                              <span className="text-neutral-500 text-[9px] font-medium">Máx: {m.maxStreak} 👑</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          )}
+        </div>
       </div>
 
       {/* 3. Sección de Partidos del Día */}

@@ -57,16 +57,27 @@ async function run() {
 
   // Determine domain
   const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL;
-  let domain = 'https://la-polla-2026.vercel.app';
+  let domain = '';
+  
   if (vercelUrl && vercelUrl.startsWith('http')) {
     domain = vercelUrl;
   } else if (vercelUrl) {
     domain = `https://${vercelUrl}`;
   }
-  // Replace localhost with default production domain because Supabase cannot call localhost
+
+  // If localhost, clear it because Supabase pg_cron cannot reach localhost
   if (domain.includes('localhost') || domain.includes('127.0.0.1')) {
-    console.log(`Localhost URL detected (${domain}). Defaulting to production domain for Supabase cron.`);
-    domain = 'https://la-polla-2026.vercel.app';
+    console.warn(`Localhost URL detected (${domain}). Supabase cannot call localhost.`);
+    domain = '';
+  }
+
+  if (!domain || domain.trim() === '') {
+    console.error(
+      'ERROR: No se especificó ninguna URL de producción válida.\n' +
+      'Configura NEXT_PUBLIC_APP_URL en tu archivo .env.local con tu URL de Vercel real (ej. https://la-polla-2026-plum.vercel.app)\n' +
+      'o define la variable de entorno VERCEL_URL.'
+    );
+    process.exit(1);
   }
 
   const endpointUrl = `${domain}/api/cron/sync-scores`;

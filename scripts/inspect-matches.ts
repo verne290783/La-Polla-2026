@@ -11,12 +11,12 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 async function run() {
   const { data, error } = await supabase
     .from('matches')
-    .select('id, phase, home_team_id, away_team_id, status, external_match_id')
-    .limit(5);
+    .select('id, phase, home_team_id, away_team_id, status, external_match_id, match_date, city, venue')
+    .order('id', { ascending: true });
   if (error) {
     console.error(error);
   } else {
-    console.log(data);
+    console.log(JSON.stringify(data, null, 2));
   }
 }
 run();

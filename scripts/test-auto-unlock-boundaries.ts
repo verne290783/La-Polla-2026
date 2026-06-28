@@ -9,8 +9,118 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const adminClient = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
 
+const createdUserIds: string[] = [];
+let originalSettingsFetched = false;
+let originalVirtualDate: string | null = null;
+let virtualDateModified = false;
+
+let cleanupInProgress = false;
+let cleanupDone = false;
+
+async function doCleanup() {
+  if (cleanupInProgress || cleanupDone) return;
+  cleanupInProgress = true;
+  console.log('\n[Cleanup] Cleaning up boundary test resources...');
+
+  try {
+    // 1. Restore virtual_date if modified
+    try {
+      if (virtualDateModified && originalSettingsFetched) {
+        if (originalVirtualDate !== null) {
+          console.log(`[Cleanup] Restoring virtual_date to: ${originalVirtualDate}`);
+          await adminClient.from('system_settings').upsert({ key: 'virtual_date', value: originalVirtualDate });
+        } else {
+          console.log('[Cleanup] Removing virtual_date setting...');
+          await adminClient.from('system_settings').delete().eq('key', 'virtual_date');
+        }
+      }
+    } catch (err: any) {
+      console.error('[Cleanup] Error restoring virtual_date:', err.message);
+    }
+
+    // 2. Clean up created test users and profiles
+    try {
+      const idsToDelete = [...createdUserIds];
+      
+      // Scan for any users with boundary-test- prefix in their email to handle interrupts before tracking array push
+      try {
+        const { data: { users } } = await adminClient.auth.admin.listUsers();
+        for (const u of users) {
+          if (u.email && u.email.startsWith('boundary-test-')) {
+            if (!idsToDelete.includes(u.id)) {
+              idsToDelete.push(u.id);
+            }
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      for (const userId of idsToDelete) {
+        try {
+          console.log(`[Cleanup] Deleting profile for user: ${userId}`);
+          await adminClient.from('profiles').delete().eq('id', userId);
+          console.log(`[Cleanup] Deleting user from auth: ${userId}`);
+          await adminClient.auth.admin.deleteUser(userId);
+        } catch (err: any) {
+          console.error(`[Cleanup] Error deleting profile/auth for user ${userId}:`, err.message);
+        }
+      }
+    } catch (err: any) {
+      console.error('[Cleanup] Error deleting user profiles/auth logins:', err.message);
+    }
+
+    console.log('[Cleanup] Cleanup finished successfully.');
+  } catch (err: any) {
+    console.error('[Cleanup] Unexpected error during cleanup:', err.message);
+  } finally {
+    cleanupInProgress = false;
+    cleanupDone = true;
+  }
+}
+
+function setupProcessHandlers() {
+  const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+  signals.forEach(sig => {
+    process.on(sig, async () => {
+      console.log(`\n[Process] Received signal ${sig}. Cleaning up and exiting...`);
+      await doCleanup();
+      process.exit(128 + (sig === 'SIGINT' ? 2 : sig === 'SIGTERM' ? 15 : 1));
+    });
+  });
+
+  process.on('uncaughtException', async (err) => {
+    console.error('\n[Process] Uncaught Exception:', err);
+    await doCleanup();
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', async (reason, promise) => {
+    console.error('\n[Process] Unhandled Rejection at:', promise, 'reason:', reason);
+    await doCleanup();
+    process.exit(1);
+  });
+}
+
+setupProcessHandlers();
+
 async function run() {
   console.log('--- STARTING AUTO-UNLOCK BOUNDARY & REGISTRATION TESTS ---');
+
+  // Fetch original settings as the very first step
+  console.log('Fetching original virtual_date setting...');
+  const { data: originalSettings, error: fetchSettingsErr } = await adminClient
+    .from('system_settings')
+    .select('*')
+    .eq('key', 'virtual_date')
+    .maybeSingle();
+  if (fetchSettingsErr) {
+    console.error('Failed to fetch original virtual_date:', fetchSettingsErr.message);
+  } else {
+    originalSettingsFetched = true;
+    originalVirtualDate = originalSettings ? originalSettings.value : null;
+    console.log('Original virtual_date setting:', originalVirtualDate ? originalVirtualDate : 'None');
+  }
 
   // 1. Get first knockout match date or fallback
   const { data: knockoutMatches, error: knockoutErr } = await adminClient
@@ -31,16 +141,6 @@ async function run() {
   }
   const knockoutKickoff = new Date(knockoutKickoffStr);
   console.log(`Knockout Kickoff determined as: ${knockoutKickoff.toISOString()}`);
-
-  // Store original settings for cleanup
-  const { data: originalSettings } = await adminClient
-    .from('system_settings')
-    .select('*')
-    .eq('key', 'virtual_date')
-    .maybeSingle();
-  console.log('Original virtual_date setting:', originalSettings ? originalSettings.value : 'None');
-
-  const createdUserIds: string[] = [];
 
   const testCases = [
     {
@@ -83,6 +183,9 @@ async function run() {
 
       // Set virtual date
       await adminClient.from('system_settings').upsert({ key: 'virtual_date', value: tc.virtualDate });
+      virtualDateModified = true;
+
+
 
       // Check app time matches
       const { data: appTime, error: appTimeErr } = await adminClient.rpc('get_app_time');
@@ -134,29 +237,12 @@ async function run() {
     console.error('\n❌ Boundary test failed with error:', err.message);
     process.exitCode = 1;
   } finally {
-    console.log('\nCleaning up boundary test users and settings...');
-    
-    // Delete test users and profiles
-    for (const userId of createdUserIds) {
-      console.log(`Deleting user: ${userId}`);
-      // Profiles has Cascade/Foreign key? Let's check, if not, delete profile first
-      await adminClient.from('profiles').delete().eq('id', userId);
-      await adminClient.auth.admin.deleteUser(userId);
-    }
-
-    // Restore virtual date
-    if (originalSettings) {
-      await adminClient.from('system_settings').upsert({ key: 'virtual_date', value: originalSettings.value });
-      console.log(`Restored virtual_date to: ${originalSettings.value}`);
-    } else {
-      await adminClient.from('system_settings').delete().eq('key', 'virtual_date');
-      console.log('Removed virtual_date setting.');
-    }
-    console.log('Cleanup complete.');
+    await doCleanup();
   }
 }
 
-run().catch(err => {
+run().catch(async err => {
   console.error('Fatal error running boundary tests:', err);
+  await doCleanup();
   process.exit(1);
 });

@@ -252,3 +252,165 @@ Integrity mode: development
 - [ ] Submitting the form successfully calls the Supabase SDK client method `auth.updateUser` to update the logged-in user's password.
 - [ ] Clear success/error messages are shown on success or failure.
 
+## Follow-up — 2026-06-19T16:19:29Z
+
+Fix the RLS policy violation error on `phase_predictions` by cleaning up the stale `virtual_date` in the database, and make the test scripts robust so that they always clean up `system_settings` even upon early failure or interruption (e.g. Ctrl+C).
+
+Working directory: c:\Users\Edison\Desktop\LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Database Cleanup
+Remove the stale `virtual_date` entry from the `system_settings` table so that `get_app_time()` correctly returns the real-time `now()`.
+
+### R2. Robust Test Script Cleanup
+Update `scripts/test-auto-unlock.ts` and `scripts/test-auto-unlock-boundaries.ts` (and any other scripts modifying `virtual_date`) to ensure they always clean up their database changes. They must:
+- Run the cleanup block even if setup throws an error (outside the main `try` block).
+- Listen to process termination events (`SIGINT`, `SIGTERM`, `SIGHUP`) and process errors (`uncaughtException`, `unhandledRejection`) to run the cleanup before exiting.
+- Leave the database `system_settings` in its original state (restoring the pre-test `virtual_date` if there was one, or deleting the key if it did not exist).
+
+## Acceptance Criteria
+
+### RLS and Time Correctness
+- [ ] Querying `get_app_time()` RPC returns the real current time (or close to `now()`).
+- [ ] Predictions for active/unlocked matches (such as today's matches) can be saved/updated without encountering RLS policy violations.
+
+### Test Script Robustness
+- [ ] Running and intentionally aborting/killing the test scripts (e.g., via Ctrl+C midway) does not leave a dirty `virtual_date` in the database.
+- [ ] Running the test scripts to completion succeeds and leaves the database clean.
+
+
+## Follow-up — 2026-06-21T20:36:32Z
+
+This project aims to solve match scoring bugs, prevent API synchronization from overriding manual score updates (with a UI option to clear the override), and fix SQL safe updates errors during points recalculation in the La Polla 2026 application.
+
+Working directory: c:/Users/Edison/Desktop/LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Fix SQL Safe Update Error
+- Resolve the "UPDATE requires a WHERE clause" error that occurs during database points recalculation (triggered by `recalculate_all_points` or when updating match 104).
+- Ensure all update statements in database functions (such as `compute_points` in `calculate_points.sql` and `supabase_schema.sql`) include appropriate `WHERE` clauses (e.g. `WHERE true` or specific columns) to comply with safe updates settings.
+- Apply the corrected SQL changes directly to the Supabase database.
+
+### R2. Prevent API Sync Overwriting Manual Scores
+- Implement an override mechanism by adding a boolean column `is_manual_override` (default false) to the `public.matches` table.
+- Modify `syncRealScores` in `src/lib/scoreSync.ts` to check if a match is flagged as manually overridden (`is_manual_override = true`) and skip syncing/overwriting it.
+- Ensure the save action on the admin dashboard (`handleSaveMatch` or similar in `AdminControl.tsx`) sets `is_manual_override = true` when updating score/status details.
+
+### R3. Admin UI Toggle to Clear Manual Override
+- Update the match row component (`MatchRow` in `AdminControl.tsx`) to show a checkbox or toggle indicating if the match has a "Manual Override" active.
+- Allow administrators to uncheck this option and click "Guardar" to set `is_manual_override = false` in the database, allowing future API syncs to update the match.
+
+## Acceptance Criteria
+
+### SQL Recalculation Integrity
+- [ ] Running the RPC `recalculate_all_points` completes successfully without safe-update errors or exceptions.
+
+### Override Mechanism & UI Toggle
+- [ ] Saving a match score manually from the admin panel correctly sets `is_manual_override = true` in the database.
+- [ ] Subsequent API synchronizations do not overwrite manually saved match scores.
+- [ ] Unchecking the manual override checkbox on the match row and clicking save resets `is_manual_override` to false, allowing subsequent API syncs to overwrite the score.
+
+## Follow-up — 2026-06-21T16:44:38-05:00
+
+This project aims to audit and resolve the late-join/late-update prediction points calculation issue where users register or submit/update their wizard predictions after matches have already locked, resulting in them earning points for already played matches.
+
+Working directory: c:/Users/Edison/Desktop/LaPolla
+Integrity mode: development
+
+## Requirements
+
+### R1. Track Last-Modified Dates for Wizard Predictions
+- Add an `updated_at` timestamp column to `public.full_tournament_predictions` and `public.champion_predictions`.
+- Implement an automatic database trigger to update the `updated_at` column whenever a row in these tables is updated.
+- Preserve all existing records, and initialize the new column with the value of the existing `created_at` column.
+
+### R2. Restrict Points Calculation Based on Submission Lock Times
+- Update `compute_points` in the database (`calculate_points.sql` and `supabase_schema.sql`) to check the submission/update time (`updated_at`) of predictions.
+- For `full_tournament_predictions` (Parte 1), if the prediction's `updated_at` is greater than or equal to the match's lock time (`lock_time_part2`), the user must earn exactly `0` points for that match.
+- For `champion_predictions`, if the prediction's `updated_at` is greater than or equal to the official tournament kickoff (`2026-06-11T20:00:00Z`::timestamp with time zone), the user must earn exactly `0` points for the champions/bonus.
+- Run a full points recalculation to update all user scores correctly.
+
+## Acceptance Criteria
+
+### Data Integrity
+- [ ] No existing user predictions (in `full_tournament_predictions`, `phase_predictions`, or `champion_predictions`) are modified, deleted, or reset.
+
+### Scoring Constraints
+- [ ] Predictions created/updated after a match's lock time (`lock_time_part2`) earn exactly `0` points for that match during recalculation.
+- [ ] Users who registered/submitted before kickoff correctly retain their earned points.
+
+## Follow-up — 2026-06-26T01:30:03Z
+
+Implementar una sincronización de partidos robusta y combinada que integre los datos de `api.football-data.org` (API principal) y `worldcup26.ir` (API de respaldo), resolviendo el problema de que los equipos de la ronda de 32 (como Sudáfrica vs Canadá) se sobrescriban con `null` y no se actualicen en el portal, asegurando que no se reintroduzca el error de doble sincronización (equipos duplicados) y que las predicciones y puntajes de los usuarios permanezcan intactos.
+
+Working directory: `c:/Users/Edison/Desktop/LaPolla`
+Integrity mode: demo
+
+## Requirements
+
+### R1. Sincronización Combinada Inteligente (Smart Merging Sync)
+Modificar la función `syncRealScores` en `src/lib/scoreSync.ts` para que:
+1. Realice la consulta a ambas APIs (`api.football-data.org` si hay API key configurada, y `worldcup26.ir` como respaldo).
+2. Combine los datos de manera inteligente con la siguiente heurística de prioridad:
+   - Para estados y goles de los partidos, se debe priorizar `api.football-data.org` (principal). Se recurrirá a `worldcup26.ir` (respaldo) solo si la API principal falla o no tiene datos.
+   - Para los equipos de las fases de eliminación directa (knockouts):
+     - Si la API principal devuelve un equipo como `null` o TBD, pero la API de respaldo ya tiene un equipo resuelto (por ejemplo, Sudáfrica y Canadá para el partido 73, o Brasil para el partido 76), se debe utilizar el equipo resuelto de la API de respaldo en lugar de sobrescribir el campo con `null`.
+     - Si la API principal tiene un equipo no nulo, se prioriza este valor sobre el de respaldo.
+     - Solo se debe actualizar un equipo a `null` si ambas APIs coinciden en que el equipo es `null`/TBD y no estaba previamente resuelto con un equipo real.
+   - Mantener el comportamiento existente de respetar los partidos que tengan el flag `is_manual_override = true` (estos no deben ser modificados por la sincronización).
+
+### R2. Protección Absoluta de Datos de Usuarios y Recálculo de Puntos
+Asegurar que ninguna operación de sincronización altere, elimine o resetee las predicciones guardadas de los usuarios en ninguna tabla (`full_tournament_predictions`, `phase_predictions`, `champion_predictions`) ni modifique sus marcas de tiempo de guardado (`created_at` / `updated_at`).
+Cualquier actualización de marcadores o estados de partidos debe desencadenar automáticamente el recálculo de los puntajes de los usuarios correspondientes (esto ya se maneja mediante el trigger `tr_calculate_points` en la base de datos).
+
+### R3. Prevención de Duplicados (Doble Sincronización)
+Asegurar que la lógica de mapeo use las IDs correctas de partidos y que no exista posibilidad de que un mismo equipo sea asignado a más de un partido en la misma ronda debido a discrepancias de IDs.
+
+## Acceptance Criteria
+
+### Sincronización Exitosa de Equipos Reales
+- [ ] Al ejecutar la sincronización (cron o admin), el partido 73 de la base de datos se actualiza correctamente con `home_team_id = 'RSA'` y `away_team_id = 'CAN'` (Sudáfrica vs Canadá).
+- [ ] Al ejecutar la sincronización, el partido 76 de la base de datos se actualiza correctamente con `home_team_id = 'BRA'` (Brasil) u otros partidos resueltos de la API de respaldo.
+- [ ] Los partidos con equipos ya resueltos en la API principal (como Alemania en el 74, México en el 79, EE. UU. en el 81, Argentina en el 86) se mantienen correctamente sincronizados con sus equipos respectivos.
+
+### Estabilidad y No Regresión de Duplicados
+- [ ] Ningún equipo aparece en más de un partido de la ronda de 32 al mismo tiempo (por ejemplo, `USA` en el partido 81 and no en el 82).
+- [ ] Posteriores ejecuciones de la sincronización no limpian ni vuelven a poner en `null` los equipos resueltos.
+
+### Preservación de Predicciones y Auditoría
+- [ ] Todas las predicciones de los usuarios siguen intactas, con sus marcas de tiempo originales intactas.
+- [ ] El sistema de puntos de los usuarios no sufre alteraciones indeseadas.
+
+## Follow-up — 2026-06-26T02:43:22Z
+
+Auditar el sistema de actualización automática (cron job) en Supabase, corregir el script de configuración `scripts/setup-cron.ts` para evitar fallbacks silenciosos a dominios incorrectos, y reprogramar el cron en la base de datos con el dominio de producción correcto de Vercel.
+
+Working directory: `c:/Users/Edison/Desktop/LaPolla`
+Integrity mode: demo
+
+## Requirements
+
+### R1. Diagnóstico y Corrección del Script de Configuración del Cron
+Modificar `scripts/setup-cron.ts` para que:
+1. Valide explícitamente que la URL de destino de la sincronización no sea un fallback estático/genérico (como `la-polla-2026.vercel.app`) a menos que el usuario lo configure de forma explícita.
+2. Requiera o tome una variable de entorno clara (por ejemplo, `PRODUCTION_URL` o `NEXT_PUBLIC_APP_URL` si no es localhost) y lance un error o advertencia clara si no se especifica ninguna URL de producción válida.
+
+### R2. Actualización de la Tarea Cron en Supabase (pg_cron)
+Actualizar el registro del cron `sync-scores-cron` en el esquema de pg_cron de Supabase para que apunte al dominio real del cliente (`https://la-polla-2026-plum.vercel.app`) en lugar del dominio estático que retorna error 404.
+
+### R3. Verificación de Ejecución
+Asegurar que tras actualizar la URL, las nuevas ejecuciones de `sync-scores-cron` en la tabla `cron.job_run_details` reporten éxito y el código de respuesta HTTP de la petición de pg_net sea exitoso (`200 OK`) en lugar de `404 Not Found`.
+
+## Acceptance Criteria
+
+### Script de Configuración Seguro
+- [ ] El script `scripts/setup-cron.ts` ya no contiene un fallback silencioso a `https://la-polla-2026.vercel.app`. Lanza un error explicativo si se intenta configurar sin una URL de producción configurada en las variables de entorno.
+
+### Cron Reprogramado y Exitoso
+- [ ] La consulta a `cron.job` en Supabase muestra que `sync-scores-cron` está apuntando a la URL del portal real provista por el usuario.
+- [ ] Al ejecutarse el cron, se registra la petición en `cron.job_run_details` con estado `succeeded` y el endpoint del portal responde exitosamente con `200 OK` (verificado en la cola de respuestas de la red si es accesible).
+

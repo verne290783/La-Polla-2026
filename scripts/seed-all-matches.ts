@@ -148,42 +148,77 @@ async function seed() {
     { key: 'FINAL', phase: 'final', startId: 104, count: 1 }
   ];
 
-  const updatesKo: any[] = [];
-  for (const stageInfo of stages) {
-    // Filtrar y ordenar cronológicamente
-    const stageApiMatches = apiMatches
-      .filter((m: any) => m.stage === stageInfo.key)
-      .sort((a: any, b: any) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+  const API_TO_LOCAL_MATCH_ID: Record<string, number> = {
+    '537417': 73,
+    '537415': 74,
+    '537418': 75,
+    '537423': 76,
+    '537416': 77,
+    '537424': 78,
+    '537425': 79,
+    '537426': 80,
+    '537421': 81,
+    '537422': 82,
+    '537419': 83,
+    '537420': 84,
+    '537429': 85,
+    '537427': 86,
+    '537430': 87,
+    '537428': 88,
+    '537375': 89,
+    '537376': 90,
+    '537377': 91,
+    '537378': 92,
+    '537379': 93,
+    '537380': 94,
+    '537381': 95,
+    '537382': 96,
+    '537383': 97,
+    '537384': 98,
+    '537385': 99,
+    '537386': 100,
+    '537387': 101,
+    '537388': 102,
+    '537389': 103,
+    '537390': 104
+  };
 
-    if (stageApiMatches.length !== stageInfo.count) {
-      console.error(`Error: Se esperaban ${stageInfo.count} partidos para ${stageInfo.key}, pero se obtuvieron ${stageApiMatches.length}`);
-      process.exit(1);
+  const updatesKo: any[] = [];
+  const apiKoMatches = apiMatches.filter((m: any) => m.stage !== 'GROUP_STAGE');
+
+  for (const apiMatch of apiKoMatches) {
+    const apiIdStr = apiMatch.id.toString();
+    const matchId = API_TO_LOCAL_MATCH_ID[apiIdStr];
+    if (!matchId) {
+      console.warn(`No se encontró mapeo para el partido de la API ID ${apiIdStr}`);
+      continue;
     }
 
-    stageApiMatches.forEach((apiMatch: any, idx: number) => {
-      const matchId = stageInfo.startId + idx;
-      const venueInfo = knockoutVenues[matchId] || { city: 'TBD', venue: 'TBD' };
-      const lockTime = new Date(new Date(apiMatch.utcDate).getTime() - 60 * 60 * 1000);
+    const stageInfo = stages.find(s => matchId >= s.startId && matchId < s.startId + s.count);
+    if (!stageInfo) {
+      console.warn(`No se encontró información de fase para el ID local ${matchId}`);
+      continue;
+    }
 
-      // Si la API ya tiene definidos los equipos, los usamos, sino los dejamos en null
-      const homeTla = mapApiTlaToDbTla(apiMatch.homeTeam?.tla);
-      const awayTla = mapApiTlaToDbTla(apiMatch.awayTeam?.tla);
+    const venueInfo = knockoutVenues[matchId] || { city: 'TBD', venue: 'TBD' };
+    const lockTime = new Date(new Date(apiMatch.utcDate).getTime() - 60 * 60 * 1000);
 
-      updatesKo.push({
-        id: matchId,
-        phase: stageInfo.phase,
-        home_team_id: homeTla,
-        away_team_id: awayTla,
-        match_date: apiMatch.utcDate,
-        lock_time_part2: lockTime.toISOString(),
-        external_match_id: apiMatch.id.toString(),
-        venue: venueInfo.venue,
-        city: venueInfo.city,
-        status: apiMatch.status === 'FINISHED' ? 'finished' : (apiMatch.status === 'LIVE' || apiMatch.status === 'IN_PLAY' || apiMatch.status === 'PAUSED') ? 'live' : 'scheduled'
-      });
+    const homeTla = mapApiTlaToDbTla(apiMatch.homeTeam?.tla);
+    const awayTla = mapApiTlaToDbTla(apiMatch.awayTeam?.tla);
+
+    updatesKo.push({
+      id: matchId,
+      phase: stageInfo.phase,
+      home_team_id: homeTla,
+      away_team_id: awayTla,
+      match_date: apiMatch.utcDate,
+      lock_time_part2: lockTime.toISOString(),
+      external_match_id: apiIdStr,
+      venue: venueInfo.venue,
+      city: venueInfo.city,
+      status: apiMatch.status === 'FINISHED' ? 'finished' : (apiMatch.status === 'LIVE' || apiMatch.status === 'IN_PLAY' || apiMatch.status === 'PAUSED') ? 'live' : 'scheduled'
     });
   }
-
 
   console.log(`Upserteando ${updatesKo.length} partidos de eliminatorias (IDs 73 al 104)...`);
   const { error: upsertKoError } = await supabase.from('matches').upsert(updatesKo, { onConflict: 'id' });
