@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getProfile, getChampionPrediction, getP2Predictions, getTeams, getUserPools, getPoolMemberInfo, getMatches } from '@/lib/db-helpers';
+import { getProfile, getChampionPrediction, getP2Predictions, getTeams, getUserPools, getPoolMemberInfo, getMatches, getPoolMembersRanking, getP1Predictions } from '@/lib/db-helpers';
 import TeamFlag from '@/components/common/TeamFlag';
 import { createClient } from '@/lib/supabase/client';
-import { calculateUserStats } from '@/lib/stats-helpers';
+import { calculateUserStats, calculateUserPart1Stats, calculateConsolidatedStats } from '@/lib/stats-helpers';
 
 interface ProfileTabProps {
   userId: string;
@@ -16,11 +16,13 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
   const [selectedPoolId, setSelectedPoolId] = useState<string>('');
   const [poolMemberInfo, setPoolMemberInfo] = useState<any>(null);
   const [championPred, setChampionPred] = useState<any>(null);
+  const [p1Predictions, setP1Predictions] = useState<any[]>([]);
   const [p2Predictions, setP2Predictions] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPoolStats, setLoadingPoolStats] = useState(false);
+  const [activeStatsTab, setActiveStatsTab] = useState<'p1' | 'p2' | 'consolidated'>('p1');
 
   // Estados para cambiar contraseña
   const [newPassword, setNewPassword] = useState('');
@@ -72,11 +74,38 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
 
         setProfile(prof);
         setTeams(allTeams);
-        setPools(userPools);
         setMatches(allMatches);
 
-        if (userPools.length > 0) {
-          setSelectedPoolId(userPools[0].id);
+        // Fetch rankings for each group/pool the user is in
+        const poolsWithRanks = await Promise.all(
+          userPools.map(async (pool) => {
+            const ranking = await getPoolMembersRanking(pool.id);
+            // Compute user rank handling ties correctly
+            let rank = 1;
+            let lastPoints = -1;
+            for (let i = 0; i < ranking.length; i++) {
+              const member = ranking[i];
+              if (i === 0) {
+                lastPoints = member.totalPoints;
+              } else if (member.totalPoints < lastPoints) {
+                rank = i + 1;
+                lastPoints = member.totalPoints;
+              }
+              if (member.userId === userId) {
+                break;
+              }
+            }
+            return { pool, rank };
+          })
+        );
+
+        // Sort pools by rank ascending
+        poolsWithRanks.sort((a, b) => a.rank - b.rank);
+        const sortedPools = poolsWithRanks.map(pr => pr.pool);
+        setPools(sortedPools);
+
+        if (poolsWithRanks.length > 0) {
+          setSelectedPoolId(poolsWithRanks[0].pool.id);
         }
       } catch (err) {
         console.error('Error al inicializar el perfil:', err);
@@ -92,6 +121,7 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
     async function loadPoolSpecificData() {
       if (!selectedPoolId) {
         setChampionPred(null);
+        setP1Predictions([]);
         setP2Predictions([]);
         setPoolMemberInfo(null);
         return;
@@ -99,13 +129,15 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
 
       try {
         setLoadingPoolStats(true);
-        const [champ, p2Preds, memberInfo] = await Promise.all([
+        const [champ, p1Preds, p2Preds, memberInfo] = await Promise.all([
           getChampionPrediction(userId, selectedPoolId),
+          getP1Predictions(userId, selectedPoolId),
           getP2Predictions(userId, selectedPoolId),
           getPoolMemberInfo(userId, selectedPoolId)
         ]);
 
         setChampionPred(champ);
+        setP1Predictions(p1Preds || []);
         setP2Predictions(p2Preds || []);
         setPoolMemberInfo(memberInfo);
       } catch (err) {
@@ -145,13 +177,16 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
     );
   };
 
-  // Estadísticas básicas usando helper exacto
-  const {
-    totalRealized: totalP2Made,
-    exactCount: exactScores,
-    winnerCount: correctWinners,
-    failedCount: failedP2
-  } = calculateUserStats(p2Predictions, matches);
+  // Estadísticas de rendimiento
+  const p1Stats = calculateUserPart1Stats(p1Predictions, matches);
+  const p2Stats = calculateUserStats(p2Predictions, matches);
+  const consolidatedStats = calculateConsolidatedStats(p1Stats, p2Stats);
+
+  const activeStats = activeStatsTab === 'p1' 
+    ? p1Stats 
+    : activeStatsTab === 'p2' 
+      ? p2Stats 
+      : consolidatedStats;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
@@ -283,32 +318,74 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
           </div>
         </div>
 
-        {/* Bloque 2: Estadísticas de Pronósticos En Vivo (Parte 2) */}
+        {/* Bloque 2: Estadísticas de Rendimiento */}
         <div className="p-6 rounded-2xl glass-card border border-neutral-800/60 shadow-lg space-y-6">
           <div>
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              📊 Estadísticas en Vivo (Parte 2)
+              📊 Estadísticas de Rendimiento
             </h3>
             <p className="text-xs text-neutral-400 mt-0.5">
-              Rendimiento en predicciones individuales de partidos en juego.
+              Rendimiento en predicciones individuales de partidos del torneo.
             </p>
+          </div>
+
+          {/* Sub-tabs */}
+          <div className="flex border-b border-neutral-800">
+            <button
+              onClick={() => setActiveStatsTab('p1')}
+              className={`flex-1 pb-2 text-xs font-bold transition-colors border-b-2 ${
+                activeStatsTab === 'p1'
+                  ? 'text-emerald-400 border-emerald-500'
+                  : 'text-neutral-400 border-transparent hover:text-white'
+              }`}
+            >
+              Parte 1 (Gran Polla)
+            </button>
+            <button
+              onClick={() => setActiveStatsTab('p2')}
+              className={`flex-1 pb-2 text-xs font-bold transition-colors border-b-2 ${
+                activeStatsTab === 'p2'
+                  ? 'text-emerald-400 border-emerald-500'
+                  : 'text-neutral-400 border-transparent hover:text-white'
+              }`}
+            >
+              Parte 2 (En Vivo)
+            </button>
+            <button
+              onClick={() => setActiveStatsTab('consolidated')}
+              className={`flex-1 pb-2 text-xs font-bold transition-colors border-b-2 ${
+                activeStatsTab === 'consolidated'
+                  ? 'text-emerald-400 border-emerald-500'
+                  : 'text-neutral-400 border-transparent hover:text-white'
+              }`}
+            >
+              Consolidado
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 text-center">
-              <p className="text-2xl font-black text-white">{totalP2Made}</p>
+              <p className="text-2xl font-black text-white">{activeStats.totalRealized}</p>
               <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Realizados</p>
             </div>
             <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/10 text-center">
-              <p className="text-2xl font-black text-emerald-400">{exactScores}</p>
-              <p className="text-[9px] text-emerald-500/80 font-bold uppercase tracking-wider mt-1">Marcador Exacto (3 pts)</p>
+              <p className="text-2xl font-black text-emerald-400">{activeStats.exactCount}</p>
+              <p className="text-[9px] text-emerald-500/80 font-bold uppercase tracking-wider mt-1">Marcador Exacto</p>
             </div>
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 text-center">
-              <p className="text-2xl font-black text-neutral-300">{correctWinners}</p>
-              <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Ganador Correcto (1 pt)</p>
+              <p className="text-2xl font-black text-neutral-300">{activeStats.winnerCount}</p>
+              <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Ganador Correcto</p>
+            </div>
+            <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 text-center">
+              <p className="text-2xl font-black text-neutral-300">{activeStats.winnerGoalsMatched || 0}</p>
+              <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Goles del Ganador Acertados</p>
+            </div>
+            <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 text-center">
+              <p className="text-2xl font-black text-neutral-300">{activeStats.loserGoalsMatched || 0}</p>
+              <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Goles del Perdedor Acertados</p>
             </div>
             <div className="p-4 rounded-xl bg-red-950/10 border border-red-500/10 text-center">
-              <p className="text-2xl font-black text-red-400/80">{failedP2}</p>
+              <p className="text-2xl font-black text-red-400/80">{activeStats.failedCount}</p>
               <p className="text-[9px] text-red-500/50 font-bold uppercase tracking-wider mt-1">Sin Puntos (0 pts)</p>
             </div>
           </div>
@@ -316,18 +393,12 @@ export default function ProfileTab({ userId }: ProfileTabProps) {
           <div className="pt-2">
             <div className="flex justify-between items-center text-xs text-neutral-400 mb-1">
               <span>Efectividad de aciertos:</span>
-              <span className="font-bold text-white">
-                {totalP2Made > 0 ? `${Math.round(((exactScores + correctWinners) / totalP2Made) * 100)}%` : '0%'}
-              </span>
+              <span className="font-bold text-white">{activeStats.effectiveness}%</span>
             </div>
             <div className="w-full bg-neutral-900 h-2 rounded-full overflow-hidden">
               <div 
                 className="bg-emerald-500 h-full rounded-full transition-all"
-                style={{ 
-                  width: totalP2Made > 0 
-                    ? `${((exactScores + correctWinners) / totalP2Made) * 100}%` 
-                    : '0%' 
-                }}
+                style={{ width: `${activeStats.effectiveness}%` }}
               />
             </div>
           </div>

@@ -44,6 +44,8 @@ export interface UserStats {
   activeStreak: number;
   maxStreak: number;
   recentForm: RecentFormItem[];
+  winnerGoalsMatched?: number;
+  loserGoalsMatched?: number;
 }
 
 export interface MemberStreak {
@@ -73,6 +75,8 @@ export function calculateUserStats(p2Predictions: P2Prediction[], matches: Match
   let exactCount = 0;
   let winnerCount = 0;
   let failedCount = 0;
+  let winnerGoalsMatchedCount = 0;
+  let loserGoalsMatchedCount = 0;
 
   // Sort matches chronologically
   const sortedMatches = [...matches].sort(
@@ -136,6 +140,10 @@ export function calculateUserStats(p2Predictions: P2Prediction[], matches: Match
       isCorrectWinnerOrDraw = (realWinnerDefinitive !== null && realWinnerDefinitive === predWinnerDefinitive);
     }
 
+    // Goals matched
+    const isWinnerGoalsMatched = (realHome >= realAway && predHome === realHome) || (realHome < realAway && predAway === realAway);
+    const isLoserGoalsMatched = (realHome >= realAway && predAway === realAway) || (realHome < realAway && predHome === realHome);
+
     if (isExact) {
       exactCount++;
       history.push(true);
@@ -146,6 +154,9 @@ export function calculateUserStats(p2Predictions: P2Prediction[], matches: Match
       failedCount++;
       history.push(false);
     }
+
+    if (isWinnerGoalsMatched) winnerGoalsMatchedCount++;
+    if (isLoserGoalsMatched) loserGoalsMatchedCount++;
   });
 
   // Calculate Max Streak and Active Streak
@@ -264,7 +275,9 @@ export function calculateUserStats(p2Predictions: P2Prediction[], matches: Match
     effectiveness,
     activeStreak,
     maxStreak,
-    recentForm
+    recentForm,
+    winnerGoalsMatched: winnerGoalsMatchedCount,
+    loserGoalsMatched: loserGoalsMatchedCount
   };
 }
 
@@ -345,4 +358,297 @@ export function calculateGroupStats(
     bestActiveStreakMemberName,
     memberStreaks
   };
+}
+
+export function calculateUserPart1Stats(p1Predictions: any[], matches: Match[]): UserStats {
+  let totalRealized = 0;
+  let exactCount = 0;
+  let winnerCount = 0;
+  let failedCount = 0;
+  let winnerGoalsMatchedCount = 0;
+  let loserGoalsMatchedCount = 0;
+
+  // Sort matches chronologically
+  const sortedMatches = [...matches].sort(
+    (a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+  );
+
+  const evaluatedMatches = sortedMatches.filter(m => m.status === 'finished' || m.status === 'live');
+  const history: boolean[] = [];
+
+  evaluatedMatches.forEach(match => {
+    const predKey = getP1PredictionKey(match.id);
+    const pred = p1Predictions.find(p => p.prediction_key === predKey);
+    if (!pred) {
+      history.push(false);
+      return;
+    }
+
+    totalRealized++;
+
+    // Check if teams match (unswapped or swapped)
+    const unswapped = (pred.predicted_home_team_id === match.home_team_id && pred.predicted_away_team_id === match.away_team_id);
+    const swapped = (pred.predicted_home_team_id === match.away_team_id && pred.predicted_away_team_id === match.home_team_id);
+
+    if (!unswapped && !swapped) {
+      failedCount++;
+      history.push(false);
+      return;
+    }
+
+    // Align predicted scores
+    let predHome = pred.predicted_home_score;
+    let predAway = pred.predicted_away_score;
+    if (swapped) {
+      predHome = pred.predicted_away_score;
+      predAway = pred.predicted_home_score;
+    }
+
+    // Real score
+    const isGroup = match.phase === 'group';
+    let realHome = match.home_score ?? 0;
+    let realAway = match.away_score ?? 0;
+
+    if (
+      !isGroup &&
+      match.home_score_90 !== null &&
+      match.away_score_90 !== null &&
+      match.home_score_90 === match.away_score_90
+    ) {
+      realHome = match.home_score ?? 0;
+      realAway = match.away_score ?? 0;
+    } else {
+      realHome = match.home_score_90 ?? match.home_score ?? 0;
+      realAway = match.away_score_90 ?? match.away_score ?? 0;
+    }
+
+    // Exact match
+    const isExact = (predHome === realHome && predAway === realAway);
+
+    // Correct Winner or Draw
+    let isCorrectWinnerOrDraw = false;
+    if (isGroup) {
+      if (realHome > realAway) {
+        isCorrectWinnerOrDraw = (predHome > predAway);
+      } else if (realHome < realAway) {
+        isCorrectWinnerOrDraw = (predHome < predAway);
+      } else {
+        isCorrectWinnerOrDraw = (predHome === predAway);
+      }
+    } else {
+      const realWinnerDefinitive = match.winner_team_id;
+      let predWinnerDefinitive = null;
+      if (predHome > predAway) {
+        predWinnerDefinitive = match.home_team_id;
+      } else if (predHome < predAway) {
+        predWinnerDefinitive = match.away_team_id;
+      } else {
+        predWinnerDefinitive = pred.predicted_winner_team_id;
+      }
+      isCorrectWinnerOrDraw = (realWinnerDefinitive !== null && realWinnerDefinitive === predWinnerDefinitive);
+    }
+
+    // Goals matched
+    const isWinnerGoalsMatched = (realHome >= realAway && predHome === realHome) || (realHome < realAway && predAway === realAway);
+    const isLoserGoalsMatched = (realHome >= realAway && predAway === realAway) || (realHome < realAway && predHome === realHome);
+
+    if (isExact) {
+      exactCount++;
+      history.push(true);
+    } else if (isCorrectWinnerOrDraw) {
+      winnerCount++;
+      history.push(true);
+    } else {
+      failedCount++;
+      history.push(false);
+    }
+
+    if (isWinnerGoalsMatched) winnerGoalsMatchedCount++;
+    if (isLoserGoalsMatched) loserGoalsMatchedCount++;
+  });
+
+  // Calculate Max Streak and Active Streak
+  let tempStreak = 0;
+  let maxStreak = 0;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]) {
+      tempStreak++;
+      if (tempStreak > maxStreak) {
+        maxStreak = tempStreak;
+      }
+    } else {
+      tempStreak = 0;
+    }
+  }
+
+  let activeStreak = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]) {
+      activeStreak++;
+    } else {
+      break;
+    }
+  }
+
+  const effectiveness = totalRealized > 0 ? Math.round(((exactCount + winnerCount) / totalRealized) * 100) : 0;
+
+  // Recent form (last 5)
+  const recentForm: RecentFormItem[] = [];
+  const last5Matches = evaluatedMatches.slice(-5);
+
+  last5Matches.forEach(match => {
+    const predKey = getP1PredictionKey(match.id);
+    const pred = p1Predictions.find(p => p.prediction_key === predKey);
+    if (!pred) {
+      recentForm.push({
+        outcome: 'missed',
+        matchId: match.id,
+        homeTeamId: match.home_team_id,
+        awayTeamId: match.away_team_id,
+        realHomeScore: match.home_score,
+        realAwayScore: match.away_score,
+        predictedHomeScore: null,
+        predictedAwayScore: null,
+        pointsEarned: null
+      });
+      return;
+    }
+
+    const unswapped = (pred.predicted_home_team_id === match.home_team_id && pred.predicted_away_team_id === match.away_team_id);
+    const swapped = (pred.predicted_home_team_id === match.away_team_id && pred.predicted_away_team_id === match.home_team_id);
+
+    if (!unswapped && !swapped) {
+      recentForm.push({
+        outcome: 'failed',
+        matchId: match.id,
+        homeTeamId: match.home_team_id,
+        awayTeamId: match.away_team_id,
+        realHomeScore: match.home_score,
+        realAwayScore: match.away_score,
+        predictedHomeScore: null,
+        predictedAwayScore: null,
+        pointsEarned: 0
+      });
+      return;
+    }
+
+    let predHome = pred.predicted_home_score;
+    let predAway = pred.predicted_away_score;
+    if (swapped) {
+      predHome = pred.predicted_away_score;
+      predAway = pred.predicted_home_score;
+    }
+
+    const isGroup = match.phase === 'group';
+    let realHome = match.home_score ?? 0;
+    let realAway = match.away_score ?? 0;
+
+    if (
+      !isGroup &&
+      match.home_score_90 !== null &&
+      match.away_score_90 !== null &&
+      match.home_score_90 === match.away_score_90
+    ) {
+      realHome = match.home_score ?? 0;
+      realAway = match.away_score ?? 0;
+    } else {
+      realHome = match.home_score_90 ?? match.home_score ?? 0;
+      realAway = match.away_score_90 ?? match.away_score ?? 0;
+    }
+
+    const isExact = (predHome === realHome && predAway === realAway);
+
+    let isCorrectWinnerOrDraw = false;
+    if (isGroup) {
+      if (realHome > realAway) {
+        isCorrectWinnerOrDraw = (predHome > predAway);
+      } else if (realHome < realAway) {
+        isCorrectWinnerOrDraw = (predHome < predAway);
+      } else {
+        isCorrectWinnerOrDraw = (predHome === predAway);
+      }
+    } else {
+      const realWinnerDefinitive = match.winner_team_id;
+      let predWinnerDefinitive = null;
+      if (predHome > predAway) {
+        predWinnerDefinitive = match.home_team_id;
+      } else if (predHome < predAway) {
+        predWinnerDefinitive = match.away_team_id;
+      } else {
+        predWinnerDefinitive = pred.predicted_winner_team_id;
+      }
+      isCorrectWinnerOrDraw = (realWinnerDefinitive !== null && realWinnerDefinitive === predWinnerDefinitive);
+    }
+
+    let outcome: 'exact' | 'winner' | 'failed' = 'failed';
+    if (isExact) {
+      outcome = 'exact';
+    } else if (isCorrectWinnerOrDraw) {
+      outcome = 'winner';
+    }
+
+    recentForm.push({
+      outcome,
+      matchId: match.id,
+      homeTeamId: match.home_team_id,
+      awayTeamId: match.away_team_id,
+      realHomeScore: realHome,
+      realAwayScore: realAway,
+      predictedHomeScore: predHome,
+      predictedAwayScore: predAway,
+      pointsEarned: pred.points_earned
+    });
+  });
+
+  return {
+    totalRealized,
+    exactCount,
+    winnerCount,
+    failedCount,
+    effectiveness,
+    activeStreak,
+    maxStreak,
+    recentForm,
+    winnerGoalsMatched: winnerGoalsMatchedCount,
+    loserGoalsMatched: loserGoalsMatchedCount
+  };
+}
+
+export function calculateConsolidatedStats(p1Stats: UserStats, p2Stats: UserStats): UserStats {
+  const totalRealized = (p1Stats.totalRealized || 0) + (p2Stats.totalRealized || 0);
+  const exactCount = (p1Stats.exactCount || 0) + (p2Stats.exactCount || 0);
+  const winnerCount = (p1Stats.winnerCount || 0) + (p2Stats.winnerCount || 0);
+  const failedCount = (p1Stats.failedCount || 0) + (p2Stats.failedCount || 0);
+  const winnerGoalsMatched = (p1Stats.winnerGoalsMatched || 0) + (p2Stats.winnerGoalsMatched || 0);
+  const loserGoalsMatched = (p1Stats.loserGoalsMatched || 0) + (p2Stats.loserGoalsMatched || 0);
+
+  const effectiveness = totalRealized > 0 ? Math.round(((exactCount + winnerCount) / totalRealized) * 100) : 0;
+
+  const activeStreak = (p1Stats.activeStreak || 0) + (p2Stats.activeStreak || 0);
+  const maxStreak = (p1Stats.maxStreak || 0) + (p2Stats.maxStreak || 0);
+
+  const recentForm = [...(p1Stats.recentForm || []), ...(p2Stats.recentForm || [])]
+    .sort((a, b) => a.matchId - b.matchId);
+
+  return {
+    totalRealized,
+    exactCount,
+    winnerCount,
+    failedCount,
+    effectiveness,
+    activeStreak,
+    maxStreak,
+    recentForm,
+    winnerGoalsMatched,
+    loserGoalsMatched
+  };
+}
+
+function getP1PredictionKey(matchId: number): string {
+  if (matchId <= 72) return `G_${matchId}`;
+  if (matchId <= 88) return `P1_R32_M${matchId}`;
+  if (matchId <= 96) return `P1_R16_M${matchId}`;
+  if (matchId <= 100) return `P1_QF_M${matchId}`;
+  if (matchId <= 104) return `P1_SF_M${matchId}`;
+  return `M${matchId}`;
 }

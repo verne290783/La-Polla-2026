@@ -13,7 +13,7 @@ import {
 } from '@/lib/db-helpers';
 import { LOCK_PART1_DATE } from '@/lib/fifa/state';
 import TeamFlag from '@/components/common/TeamFlag';
-import { calculateUserStats } from '@/lib/stats-helpers';
+import { calculateUserStats, calculateUserPart1Stats, calculateConsolidatedStats } from '@/lib/stats-helpers';
 
 interface LeaderboardTabProps {
   currentUserId: string;
@@ -41,6 +41,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
   const [teams, setTeams] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
   const [userHasNoPools, setUserHasNoPools] = useState<boolean>(false);
+  const [modalStatsTab, setModalStatsTab] = useState<'p1' | 'p2' | 'consolidated'>('p1');
 
   // Scroll lock when modal is open
   useEffect(() => {
@@ -71,6 +72,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
   const handleUserClick = async (targetUser: any, defaultTab: 'stats' | 'predictions' = 'stats') => {
     setSelectedUser(targetUser);
     setModalTab(defaultTab);
+    setModalStatsTab('p1');
     setModalLoading(true);
     setUserHasNoPools(false);
     try {
@@ -469,9 +471,52 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
 
                       {modalTab === 'stats' ? (
                         <div className="space-y-6">
+                          {/* Sub-tabs inside stats modal */}
+                          <div className="flex border-b border-neutral-850 gap-2 mb-4">
+                            <button
+                              onClick={() => setModalStatsTab('p1')}
+                              className={`flex-1 pb-2 text-[11px] font-bold transition-colors border-b-2 ${
+                                modalStatsTab === 'p1'
+                                  ? 'text-emerald-400 border-emerald-500'
+                                  : 'text-neutral-400 border-transparent hover:text-white'
+                              }`}
+                            >
+                              Parte 1 (Gran Polla)
+                            </button>
+                            <button
+                              onClick={() => setModalStatsTab('p2')}
+                              className={`flex-1 pb-2 text-[11px] font-bold transition-colors border-b-2 ${
+                                modalStatsTab === 'p2'
+                                  ? 'text-emerald-400 border-emerald-500'
+                                  : 'text-neutral-400 border-transparent hover:text-white'
+                              }`}
+                            >
+                              Parte 2 (En Vivo)
+                            </button>
+                            <button
+                              onClick={() => setModalStatsTab('consolidated')}
+                              className={`flex-1 pb-2 text-[11px] font-bold transition-colors border-b-2 ${
+                                modalStatsTab === 'consolidated'
+                                  ? 'text-emerald-400 border-emerald-500'
+                                  : 'text-neutral-400 border-transparent hover:text-white'
+                              }`}
+                            >
+                              Consolidado
+                            </button>
+                          </div>
+
                           {/* 1. Visualizations: Radial Gauge and Donut Chart */}
                           {(() => {
-                            const userStats = calculateUserStats(modalP2Predictions, matches);
+                            const p1Stats = calculateUserPart1Stats(modalP1Predictions, matches);
+                            const p2Stats = calculateUserStats(modalP2Predictions, matches);
+                            const consolidatedStats = calculateConsolidatedStats(p1Stats, p2Stats);
+
+                            const userStats = modalStatsTab === 'p1'
+                              ? p1Stats
+                              : modalStatsTab === 'p2'
+                                ? p2Stats
+                                : consolidatedStats;
+
                             const radiusRadial = 28;
                             const circRadial = 2 * Math.PI * radiusRadial;
                             const offsetRadial = circRadial - (circRadial * userStats.effectiveness) / 100;
@@ -568,7 +613,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                                 </div>
 
                                 {/* 2. Metrics Cards */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                   <div className="p-3 rounded-xl bg-neutral-950/20 border border-neutral-800 text-center">
                                     <p className="text-xl font-black text-white">{userStats.totalRealized}</p>
                                     <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Realizados</p>
@@ -580,6 +625,14 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                                   <div className="p-3 rounded-xl bg-sky-950/10 border border-sky-500/10 text-center">
                                     <p className="text-xl font-black text-sky-400">{userStats.winnerCount}</p>
                                     <p className="text-[8px] text-sky-500/80 font-bold uppercase tracking-wider mt-1">Ganador Correcto</p>
+                                  </div>
+                                  <div className="p-3 rounded-xl bg-neutral-950/20 border border-neutral-800 text-center">
+                                    <p className="text-xl font-black text-neutral-300">{userStats.winnerGoalsMatched || 0}</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Goles del Ganador Acertados</p>
+                                  </div>
+                                  <div className="p-3 rounded-xl bg-neutral-950/20 border border-neutral-800 text-center">
+                                    <p className="text-xl font-black text-neutral-300">{userStats.loserGoalsMatched || 0}</p>
+                                    <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-wider mt-1">Goles del Perdedor Acertados</p>
                                   </div>
                                   <div className="p-3 rounded-xl bg-red-950/10 border border-red-500/10 text-center">
                                     <p className="text-xl font-black text-red-400/80">{userStats.failedCount}</p>

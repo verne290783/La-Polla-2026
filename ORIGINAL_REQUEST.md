@@ -414,3 +414,48 @@ Asegurar que tras actualizar la URL, las nuevas ejecuciones de `sync-scores-cron
 - [ ] La consulta a `cron.job` en Supabase muestra que `sync-scores-cron` está apuntando a la URL del portal real provista por el usuario.
 - [ ] Al ejecutarse el cron, se registra la petición en `cron.job_run_details` con estado `succeeded` y el endpoint del portal responde exitosamente con `200 OK` (verificado en la cola de respuestas de la red si es accesible).
 
+## Follow-up — 2026-06-28T15:20:29Z
+
+Implementar mejoras de estadísticas avanzadas y control de grupos en la pantalla de Perfil y en el modal de jugador del Leaderboard, incorporando las estadísticas de la Parte 1, una pestaña consolidada y métricas de acierto de goles de ganador/perdedor.
+
+Working directory: `c:/Users/Edison/Desktop/LaPolla`
+Integrity mode: development
+
+## Requirements
+
+### R1. Selector de Grupo en Pantalla de Perfil con Selección Inteligente por Defecto
+- En la pestaña de Perfil (`ProfileTab`), el selector de grupo debe permitir elegir de qué grupo se desean ver las estadísticas y el podio.
+- Por defecto, debe inicializarse seleccionando el grupo en el cual el usuario va en mejor posición (es decir, el menor número de ranking, ej. #1 antes que #3).
+
+### R2. Estadísticas Divididas por Fase (Parte 1, Parte 2 y Consolidado)
+- Las estadísticas de rendimiento de cada jugador (visibles tanto en su perfil como al hacer clic sobre su avatar/nombre en la tabla de posiciones) deben incluir las de la Parte 1 y de la Parte 2.
+- Deben presentarse estructuradas en pestañas independientes dentro de la sección de estadísticas:
+  - **Parte 1 (Gran Polla)**: Estadísticas de predicciones de fase de grupos y eliminatorias de la Parte 1.
+  - **Parte 2 (En Vivo)**: Estadísticas de predicciones en vivo de la Parte 2.
+  - **Consolidado**: Suma acumulada de métricas clave de ambas partes.
+
+### R3. Nuevas Métricas Avanzadas de Goles (Goles del Ganador / Perdedor)
+- Se deben calcular y mostrar las siguientes métricas de goles para ambas partes (Parte 1 y Parte 2):
+  - **Aciertos de Marcador Exacto**: Total de partidos donde se acertó el marcador de ambos equipos.
+  - **Goles del Ganador Acertados**: Cantidad de veces que se predijo exactamente el número de goles anotados por el equipo que resultó ganador del partido. En caso de empate, se toma como acierto en goles de equipo local.
+  - **Goles del Perdedor Acertados**: Cantidad de veces que se predijo exactamente el número de goles anotados por el equipo que resultó perdedor del partido. En caso de empate, se toma como acierto en goles de equipo visitante.
+
+## Acceptance Criteria
+
+### Interfaz del Perfil e Inicialización de Grupo
+- [ ] La pantalla de Perfil muestra un selector de grupos que inicializa por defecto con el grupo donde el usuario tiene la posición de ranking más alta (ej: #1 o la más cercana a 1).
+- [ ] Cambiar de grupo en el perfil actualiza de forma inmediata los puntos de esa liga, el podio pronosticado y el desglose de goles de las predicciones de esa liga.
+
+### Pestañas de Estadísticas de Jugador (Modal y Perfil)
+- [ ] Al hacer clic en un jugador en posiciones, o al ver el Perfil, las estadísticas están organizadas en sub-pestañas: "Parte 1", "Parte 2" y "Consolidado".
+- [ ] La pestaña de "Consolidado" muestra la suma de los partidos pronosticados, marcadores exactos, efectividad total, etc.
+
+### Métricas Detalladas de Goles
+- [ ] Se muestran las métricas específicas de "Goles del Ganador Acertados" y "Goles del Perdedor Acertados" tanto en la interfaz de usuario de perfil como en el modal de detalles de jugador.
+- [ ] Las métricas se calculan comparando correctamente la predicción de cada partido contra el resultado real de goles.
+- [ ] Se verifica mediante pruebas unitarias o de integración que los contadores coinciden matemáticamente con los datos reales en la BD.
+
+### Git Push to GitHub
+- [ ] Al finalizar la implementación, realizar git add, commit y git push a github sin secretos.
+
+
