@@ -491,3 +491,34 @@ Integrity mode: development
 
 ### Git Push
 - [ ] Subir los cambios a GitHub.
+
+## Follow-up — 2026-06-30T00:36:10Z
+
+Visualizar de forma clara y elegante tanto el marcador de tiempo de juego (90/120 minutos) como el de la tanda de penales en los partidos de eliminación directa finalizados por esta vía, asegurando un diseño limpio y adaptable a dispositivos móviles.
+
+Working directory: `c:/Users/Edison/Desktop/LaPolla`
+Integrity mode: development
+
+## Requirements
+
+### R1. Visualización del Desglose de Marcadores (120 Min vs Penales)
+- En todas las pantallas de visualización de partidos de la aplicación, si un partido de eliminación directa finalizó por penales, se debe mostrar el resultado reglamentario de 120 minutos y el resultado de la tanda de penales en formato compacto (ej: `1 - 1 (5 - 6 pen.)` o `Real: 1 - 1 (5 - 6 pen.)`, con la tanda de penales en un tamaño de fuente menor y tono secundario).
+- Esto debe aplicarse en las siguientes tres áreas de la interfaz de usuario:
+  1. **Pestaña de Fixture / Polla** (`FixtureTab`): En la visualización de partidos de la Parte 2.
+  2. **Pestaña de Mi Perfil** (`ProfileTab`): En la lista de predicciones detalladas del propio usuario.
+  3. **Modal de Detalle de Jugador en el Leaderboard** (`LeaderboardTab`): En la pestaña "Predicciones Detalladas" del modal de cualquier jugador (como se muestra en la pantalla de Camilo Moreno).
+- El diseño debe ser compacto, elegante y 100% responsivo para pantallas móviles estrechas.
+
+### R2. Salvaguarda de Datos de Predicciones y Puntajes
+- No realizar ninguna modificación de base de datos ni alterar los registros de predicciones o puntajes ya calculados. El cambio es puramente de presentación visual en el frontend.
+
+## Acceptance Criteria
+
+### Interfaz de Usuario (Fixture, Perfil y Modal de Jugador)
+- [ ] Los partidos definidos por penales muestran tanto el marcador reglamentario (`1 - 1`) como el de penales (`5 - 6 pen.`) de forma clara y compacta en: el Fixture, el Perfil del usuario y el Modal de cualquier jugador del Leaderboard.
+- [ ] La visualización es fluida y adaptable en pantallas móviles, sin desbordamientos de texto ni solapamientos de cajas.
+
+### Pruebas e Integridad
+- [ ] La compilación del proyecto con `npm run build` finaliza con éxito.
+- [ ] Las suites de pruebas unitarias y matemáticas de estadísticas se ejecutan correctamente sin errores.
+

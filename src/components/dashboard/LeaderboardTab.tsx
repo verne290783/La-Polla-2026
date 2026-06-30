@@ -678,10 +678,43 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
 
                                         const homeTeamName = teams.find(t => t.id === homeTeamId)?.name || homeTeamId;
                                         const awayTeamName = teams.find(t => t.id === awayTeamId)?.name || awayTeamId;
-                                        const matchLabel = `${homeTeamName} ${realHomeScore !== null ? realHomeScore : ''} - ${realAwayScore !== null ? realAwayScore : ''} ${awayTeamName}`;
-                                        const predLabel = predictedHomeScore !== null && predictedAwayScore !== null 
-                                          ? `Pred: ${predictedHomeScore} - ${predictedAwayScore}` 
-                                          : 'Sin predicción';
+                                        
+                                        const matchObj = matches.find(m => m.id === item.matchId);
+                                        const isKnockout = matchObj ? matchObj.phase !== 'group' : false;
+                                        const wentToExtraTimeOrPenalties = matchObj
+                                          ? isKnockout &&
+                                            matchObj.home_score_90 !== null &&
+                                            matchObj.away_score_90 !== null &&
+                                            matchObj.home_score_90 === matchObj.away_score_90
+                                          : false;
+
+                                        let scoreLabel = '';
+                                        if (wentToExtraTimeOrPenalties && matchObj) {
+                                          if (matchObj.home_score !== matchObj.away_score) {
+                                            scoreLabel = `${matchObj.home_score_90}-${matchObj.away_score_90} (T.E. ${matchObj.home_score}-${matchObj.away_score})`;
+                                          } else {
+                                            scoreLabel = `${matchObj.home_score_90}-${matchObj.away_score_90} ${matchObj.winner_team_id ? `(${matchObj.winner_team_id} pen.)` : '(pen.)'}`;
+                                          }
+                                        } else {
+                                          scoreLabel = `${realHomeScore !== null ? realHomeScore : ''} - ${realAwayScore !== null ? realAwayScore : ''}`;
+                                        }
+
+                                        const matchLabel = `${homeTeamName} ${scoreLabel} ${awayTeamName}`;
+
+                                        const p2Pred = modalP2Predictions.find(p => p.match_id === item.matchId);
+                                        const p1Pred = modalP1Predictions.find(p =>
+                                          p.prediction_key === `G_${item.matchId}` ||
+                                          p.prediction_key.endsWith(`_M${item.matchId}`)
+                                        );
+                                        const predWinnerId = p2Pred?.predicted_winner_team_id || p1Pred?.predicted_winner_team_id;
+
+                                        let predLabel = 'Sin predicción';
+                                        if (predictedHomeScore !== null && predictedAwayScore !== null) {
+                                          predLabel = `Pred: ${predictedHomeScore} - ${predictedAwayScore}`;
+                                          if (isKnockout && predictedHomeScore === predictedAwayScore && predWinnerId) {
+                                            predLabel += ` (Gana: ${predWinnerId} pen.)`;
+                                          }
+                                        }
 
                                         return (
                                           <div key={idx} className="relative group flex items-center justify-center">
@@ -894,6 +927,7 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                                           {pred.predicted_winner_team_id && (
                                             <span className="ml-1 text-[9px] bg-emerald-950 border border-emerald-500/20 text-emerald-400 font-bold px-1 rounded">
                                               Gana: {pred.predicted_winner_team_id}
+                                              {pred.phase !== 'group' && pred.predicted_home_score === pred.predicted_away_score ? ' pen.' : ''}
                                             </span>
                                           )}
                                         </div>
@@ -954,9 +988,16 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
                                           {!isLocked ? (
                                             <span className="text-neutral-500 font-medium">🔒 Oculto</span>
                                           ) : pred ? (
-                                            <span className="text-emerald-400 font-extrabold">
-                                              {pred.predicted_home_score} - {pred.predicted_away_score}
-                                            </span>
+                                            <>
+                                              <span className="text-emerald-400 font-extrabold">
+                                                {pred.predicted_home_score} - {pred.predicted_away_score}
+                                              </span>
+                                              {match.phase !== 'group' && pred.predicted_home_score === pred.predicted_away_score && pred.predicted_winner_team_id && (
+                                                <span className="ml-1 text-[9px] bg-emerald-950 border border-emerald-500/20 text-emerald-400 font-bold px-1 rounded">
+                                                  Gana: {pred.predicted_winner_team_id} pen.
+                                                </span>
+                                              )}
+                                            </>
                                           ) : (
                                             <span className="text-neutral-500 font-medium">Sin pronóstico</span>
                                           )}
@@ -964,11 +1005,46 @@ export default function LeaderboardTab({ currentUserId }: LeaderboardTabProps) {
 
                                         {/* Resultado real */}
                                         {(match.status === 'live' || match.status === 'finished') && (
-                                          <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px]">
+                                          <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1 text-[11px] flex flex-wrap items-center gap-1.5">
                                             <span className="text-neutral-400">Real: </span>
-                                            <span className="text-white font-extrabold">
-                                              {match.home_score} - {match.away_score}
-                                            </span>
+                                            {(() => {
+                                              const isKnockout = match.phase !== 'group';
+                                              const wentToExtraTimeOrPenalties =
+                                                isKnockout &&
+                                                match.home_score_90 !== null &&
+                                                match.away_score_90 !== null &&
+                                                match.home_score_90 === match.away_score_90;
+
+                                              if (wentToExtraTimeOrPenalties) {
+                                                if (match.home_score !== match.away_score) {
+                                                  return (
+                                                    <span className="text-white font-extrabold flex items-center gap-1">
+                                                      <span>{match.home_score_90} - {match.away_score_90}</span>
+                                                      <span className="text-[9px] bg-emerald-950/60 border border-emerald-500/20 text-emerald-400 font-bold px-1 py-0.5 rounded whitespace-nowrap">
+                                                        T.E. {match.home_score}-{match.away_score}
+                                                      </span>
+                                                    </span>
+                                                  );
+                                                } else {
+                                                  return (
+                                                    <span className="text-white font-extrabold flex items-center gap-1">
+                                                      <span>{match.home_score_90} - {match.away_score_90}</span>
+                                                      {match.winner_team_id && (
+                                                        <span className="text-[9px] bg-amber-500/10 border border-amber-500/20 text-amber-500 font-bold px-1 py-0.5 rounded whitespace-nowrap">
+                                                          {match.winner_team_id} pen.
+                                                        </span>
+                                                      )}
+                                                    </span>
+                                                  );
+                                                }
+                                              }
+
+                                              return (
+                                                <span className="text-white font-extrabold">
+                                                  {match.home_score} - {match.away_score}
+                                                </span>
+                                              );
+                                            })()}
                                             {match.status === 'live' && (
                                               <span className="ml-1 text-[9px] bg-red-600 text-white font-bold px-1 rounded animate-pulse">
                                                 VIVO

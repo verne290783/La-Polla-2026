@@ -1766,7 +1766,48 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                   <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Marcador Real</p>
                                   <div className="flex justify-center items-center gap-3">
                                     <span className="text-xs font-black text-white">{match.home_team_id || 'Por definir'}</span>
-                                    <span className="text-lg font-black text-emerald-400">{match.home_score} - {match.away_score}</span>
+                                    {(() => {
+                                      const isKnockout = match.phase !== 'group';
+                                      const wentToExtraTimeOrPenalties =
+                                        isKnockout &&
+                                        match.home_score_90 !== null &&
+                                        match.away_score_90 !== null &&
+                                        match.home_score_90 === match.away_score_90;
+
+                                      if (wentToExtraTimeOrPenalties) {
+                                        if (match.home_score !== match.away_score) {
+                                          return (
+                                            <div className="flex flex-col items-center">
+                                              <span className="text-lg font-black text-emerald-400">
+                                                {match.home_score_90} - {match.away_score_90}
+                                              </span>
+                                              <span className="text-[9px] bg-emerald-950/60 border border-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap">
+                                                T.E. {match.home_score} - {match.away_score}
+                                              </span>
+                                            </div>
+                                          );
+                                        } else {
+                                          return (
+                                            <div className="flex flex-col items-center">
+                                              <span className="text-lg font-black text-emerald-400">
+                                                {match.home_score_90} - {match.away_score_90}
+                                              </span>
+                                              {match.winner_team_id && (
+                                                <span className="text-[9px] bg-amber-500/10 border border-amber-500/20 text-amber-500 font-bold px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap">
+                                                  Gana: {match.winner_team_id} pen.
+                                                </span>
+                                              )}
+                                            </div>
+                                          );
+                                        }
+                                      }
+
+                                      return (
+                                        <span className="text-lg font-black text-emerald-400">
+                                          {match.home_score} - {match.away_score}
+                                        </span>
+                                      );
+                                    })()}
                                     <span className="text-xs font-black text-white">{match.away_team_id || 'Por definir'}</span>
                                   </div>
                                 </div>
@@ -1860,7 +1901,23 @@ export default function FixtureTab({ userId }: FixtureTabProps) {
                                 
                                 {(isFinished || isLive) && (
                                   <span className="px-2 py-1 rounded-md bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 font-extrabold text-[10.5px] shadow-sm animate-fadeIn">
-                                    Real: {match.home_score} - {match.away_score}
+                                    {(() => {
+                                      const isKnockout = match.phase !== 'group';
+                                      const wentToExtraTimeOrPenalties =
+                                        isKnockout &&
+                                        match.home_score_90 !== null &&
+                                        match.away_score_90 !== null &&
+                                        match.home_score_90 === match.away_score_90;
+
+                                      if (wentToExtraTimeOrPenalties) {
+                                        if (match.home_score !== match.away_score) {
+                                          return `Real: ${match.home_score_90}-${match.away_score_90} (T.E. ${match.home_score}-${match.away_score})`;
+                                        } else {
+                                          return `Real: ${match.home_score_90}-${match.away_score_90} ${match.winner_team_id ? `(${match.winner_team_id} pen.)` : '(pen.)'}`;
+                                        }
+                                      }
+                                      return `Real: ${match.home_score} - ${match.away_score}`;
+                                    })()}
                                   </span>
                                 )}
 

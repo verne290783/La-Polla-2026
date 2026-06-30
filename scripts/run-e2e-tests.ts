@@ -76,6 +76,7 @@ async function runTests() {
   const fixtureTabPath = path.resolve(__dirname, '../src/components/dashboard/FixtureTab.tsx');
   const homeTabPath = path.resolve(__dirname, '../src/components/dashboard/HomeTab.tsx');
   const profileTabPath = path.resolve(__dirname, '../src/components/dashboard/ProfileTab.tsx');
+  const leaderboardTabPath = path.resolve(__dirname, '../src/components/dashboard/LeaderboardTab.tsx');
   const teamFlagPath = path.resolve(__dirname, '../src/components/common/TeamFlag.tsx');
   const seedPath = path.resolve(__dirname, 'seed.ts');
 
@@ -83,6 +84,7 @@ async function runTests() {
   const fixtureTabContent = fs.readFileSync(fixtureTabPath, 'utf8');
   const homeTabContent = fs.readFileSync(homeTabPath, 'utf8');
   const profileTabContent = fs.readFileSync(profileTabPath, 'utf8');
+  const leaderboardTabContent = fs.readFileSync(leaderboardTabPath, 'utf8');
   const teamFlagContent = fs.readFileSync(teamFlagPath, 'utf8');
   const seedContent = fs.readFileSync(seedPath, 'utf8');
 
@@ -381,6 +383,18 @@ async function runTests() {
     // 4. Save logic blocks saving unless a winner is selected for draws
     if (!fixtureContent.includes('!pred.winnerId') || !fixtureContent.includes('alert')) {
       throw new Error('Save logic does not block saving for draws unless a winner is selected');
+    }
+  });
+
+  recordResult('TEST_M4_R4', 'Verify shootout real score formatting checks for null/falsy winner_team_id', 'Tier 3', () => {
+    // 1. FixtureTab has shootout formatter with winner_team_id check
+    if (!fixtureTabContent.includes('match.winner_team_id ? `(${match.winner_team_id} pen.)` : \'(pen.)\'')) {
+      throw new Error('FixtureTab.tsx does not check if match.winner_team_id is set in the shootout real score formatter');
+    }
+
+    // 2. LeaderboardTab has shootout formatter with winner_team_id check
+    if (!leaderboardTabContent.includes('matchObj.winner_team_id ? `(${matchObj.winner_team_id} pen.)` : \'(pen.)\'')) {
+      throw new Error('LeaderboardTab.tsx does not check if matchObj.winner_team_id is set in the shootout real score formatter');
     }
   });
 
