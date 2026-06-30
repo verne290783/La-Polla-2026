@@ -459,3 +459,35 @@ Integrity mode: development
 - [ ] Al finalizar la implementación, realizar git add, commit y git push a github sin secretos.
 
 
+
+## Follow-up — 2026-06-29T23:51:06Z
+
+Corregir la discrepancia de podio de la Parte 1 (La Gran Polla) en la interfaz de usuario, restableciendo la configuración lógica de Cuartos de Final (qfPlan) en la simulación del bracket y asegurando coincidencia absoluta con los datos de predicciones guardados.
+
+Working directory: `c:/Users/Edison/Desktop/LaPolla`
+Integrity mode: development
+
+## Requirements
+
+### R1. Restablecimiento del Plan de Cuartos de Final (qfPlan)
+- En `src/lib/fifa/bracket.ts`, restablecer la estructura de `qfPlan` para alinearse con los datos del wizard y las predicciones guardadas de los usuarios:
+  - Partido #98 debe emparejar al ganador del Partido #91 contra el ganador del Partido #92.
+  - Partido #99 debe emparejar al ganador del Partido #93 contra el ganador del Partido #94.
+
+### R2. Validación de Integridad
+- Asegurar que la simulación del podio dinámico en la pantalla "Polla" y modal del Leaderboard coincida exactamente con las predicciones guardadas en `champion_predictions` para los usuarios con el bracket completo guardado.
+- Validar que no se modifique ningún dato en la base de datos (las tablas de predicciones y puntajes son de lectura y de carácter sagrado).
+
+## Acceptance Criteria
+
+### Corrección Lógica del Bracket
+- [ ] La definición de `qfPlan` en `src/lib/fifa/bracket.ts` tiene las llaves correctas de los partidos 98 y 99.
+- [ ] El flujo de la simulación en el frontend resuelve las semifinales y el podio final exactamente igual que el podio registrado por el usuario en la base de datos para todas las ligas.
+
+### Pruebas y Compilación
+- [ ] La compilación de producción `npm run build` finaliza con éxito.
+- [ ] Los tests matemáticos de estadísticas continúan pasando correctamente.
+- [ ] El script de verificación de simulación demuestra coherencia matemática en todos los grupos.
+
+### Git Push
+- [ ] Subir los cambios a GitHub.

@@ -1,31 +1,25 @@
-# Project: La Polla 2026 - Advanced Stats & Group Control
+# Project: La Polla 2026 - Podium and QF Bracket Fix
 
 ## Architecture
-The application is a Next.js prediction portal built with Tailwind CSS and Supabase.
-- Profiles and Groups: Users can join groups, and their rankings/positions are tracked per group in `pool_members` and globally in `profiles`.
-- Predictions: Predictions are split into Part 1 (full tournament/bracket predictions) and Part 2 (live, match-by-match predictions).
-- Stats display: Both the user Profile screen (`ProfileTab.tsx`) and the Leaderboard Player Modal display prediction statistics like matches predicted, exact scores, efficiency, etc.
+The application is a Next.js prediction portal.
+- Bracket Logic: Matches are generated and updated via `src/lib/fifa/bracket.ts`.
+- Podium Simulation: Displays the champion predictions and simulated podium on the "Polla" tab (`PollaTab` or similar) and the Leaderboard Player Modal.
+- Read-only integrity: No database updates should be made for these verification/simulation steps; all data should remain intact.
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
-|---|------|-------|-------------|--------|
-| 1 | Exploration & Impact Analysis | Identify where profile stats, leaderboard modals, group select, and user predictions are stored/rendered. Define metrics calculation logic. | None | DONE (6a949c90) |
-| 2 | DB & API Audit/Implementation | Verify if any database tables, RPCs, or backend endpoints require updates. | Milestone 1 | SKIPPED |
-| 3 | Frontend Integration | Implement group selector with default best position, split tabs (Part 1, Part 2, Consolidado), and add new goal metrics in Profile & Modal. | Milestone 2 | DONE (8334c542) |
-| 4 | Verification & Audit | Add unit/integration tests for mathematical correctness, run lint/build, and run Forensic Auditor. | Milestone 3 | IN_PROGRESS (b953ca4f) |
-| 5 | Submission & push | Git commit and push changes to GitHub. | Milestone 4 | PLANNED |
+|---|---|---|---|---|
+| 1 | Exploration & Impact Analysis | Identify exact location of `qfPlan` in `bracket.ts` and inspect podium/champion prediction rendering/simulation in the UI components (Polla tab, Leaderboard modal). | None | DONE (a8d1a022, 98e35216, 220ce513) |
+| 2 | Code Correction | Update `qfPlan` in `src/lib/fifa/bracket.ts` (Match 98, Match 99). Verify logic does not disrupt other matches. | Milestone 1 | DONE (48b8b656) |
+| 3 | Verification & Verification | Run production build (`npm run build`), verify tests, run forensic audit checks to confirm integrity. | Milestone 2 | DONE (864dfc41) |
+| 4 | GitHub Submission | Push all modifications and clean status to GitHub remote repo. | Milestone 3 | IN_PROGRESS (df4f7db3) |
 
 ## Code Layout
-- `src/components/dashboard/ProfileTab.tsx` — Handles the Profile view, including the new group selector with intelligent default selection and tabbed statistics.
-- `src/components/dashboard/LeaderboardTab.tsx` — Leaderboard list view and embedded player details stats modal.
-- `src/lib/stats-helpers.ts` — Computes statistics (Part 1, Part 2, and Consolidado) for users.
-- `src/lib/db-helpers.ts` — Houses queries to get profile, teams, matches, pools, and predictions.
-- `scripts/test-stats-mathematics.ts` — Integration tests validating mathematical correctness.
+- `src/lib/fifa/bracket.ts` — Bracket configuration and tournament progression structure.
+- `src/components/dashboard/PollaTab.tsx` / similar UI tabs — Renders the tournament podium and bracket.
+- `src/components/dashboard/LeaderboardTab.tsx` or Leaderboard modals — Shows details modal for players.
+- `scripts/test-stats-mathematics.ts` / tests — Mathematical validation scripts.
 
 ## Interface Contracts
-- `calculateUserPart1Stats(p1Predictions: any[], matches: Match[]): UserStats`
-- `calculateConsolidatedStats(p1Stats: UserStats, p2Stats: UserStats): UserStats`
-- Default Group Rank: resolved by sorting joined pools by user rank inside each pool (computed from `getPoolMembersRanking` ascending).
-- Ties in Winner/Loser goals matched:
-  - Winner: if tie (`realHome === realAway`), check home score match.
-  - Loser: if tie (`realHome === realAway`), check away score match.
+- `qfPlan`: Map of quarterfinal matches to their feeds (winners of prior rounds).
+- Dynamic Podium Simulation: Must match champion predictions (`champion_predictions` table) for users who have completed their brackets.
