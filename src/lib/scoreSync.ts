@@ -163,15 +163,19 @@ export async function syncRealScores() {
     const isFinished = status === 'finished';
     const isLive = status === 'live';
 
+    const isPenaltyShootout = pm.score?.duration === 'PENALTY_SHOOTOUT' || (pm.score?.penalties?.home !== undefined && pm.score?.penalties?.home !== null);
+    const penaltyHome = isPenaltyShootout ? (pm.score.penalties?.home || 0) : 0;
+    const penaltyAway = isPenaltyShootout ? (pm.score.penalties?.away || 0) : 0;
+
     const homeScore = (isFinished || isLive) &&
                       pm.score?.fullTime?.home !== undefined &&
                       pm.score?.fullTime?.home !== null
-                        ? Number(pm.score.fullTime.home)
+                        ? Number(pm.score.fullTime.home) - penaltyHome
                         : null;
     const awayScore = (isFinished || isLive) &&
                       pm.score?.fullTime?.away !== undefined &&
                       pm.score?.fullTime?.away !== null
-                        ? Number(pm.score.fullTime.away)
+                        ? Number(pm.score.fullTime.away) - penaltyAway
                         : null;
 
     const hasRegularTime = (isFinished || isLive) &&
